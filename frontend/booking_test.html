@@ -1,0 +1,35 @@
+<!-- frontend/booking_test.html -->
+<!DOCTYPE html>
+<html>
+<head>
+  <title>예약 테스트</title>
+</head>
+<body>
+  <h2>예약 테스트</h2>
+  <form id="booking-form">
+    학번: <input type="text" name="student_id"><br>
+    이름: <input type="text" name="name"><br>
+    전공: <input type="text" name="major"><br>
+    호실: <input type="text" name="room"><br>
+    층수: <input type="number" name="floor"><br>
+    날짜: <input type="date" name="date"><br>
+    시간: <input type="text" name="time_slot"><br>
+    <button type="submit">예약하기</button>
+  </form>
+
+  <script>
+    const form = document.getElementById('booking-form');
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const data = Object.fromEntries(new FormData(form));
+      const res = await fetch('/book', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+      });
+      const result = await res.json();
+      alert(JSON.stringify(result));
+    });
+  </script>
+</body>
+</html>
