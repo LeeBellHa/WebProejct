@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>관리자 페이지</title>
+  <style>
+    body { font-family: sans-serif; max-width: 800px; margin: 2em auto; }
+    h1 { margin-bottom: 1em; }
+    section { margin-bottom: 2em; }
+    ul { list-style: none; padding: 0; }
+    li { margin: .5em 0; display: flex; align-items: center; }
+    li button { margin-left: 1em; }
+  </style>
+</head>
+<body>
+  <h1>🛠️ Admin Dashboard</h1>
+  <button id="logout">로그아웃</button>
+
+  <section>
+    <h2>승인 대기 사용자</h2>
+    <ul id="pendingList">로딩 중...</ul>
+  </section>
+
+  <section>
+    <h2>일반 사용자</h2>
+    <ul id="userList">로딩 중...</ul>
+  </section>
+
+  <script>
+    const token = localStorage.getItem("token");
+    if (!token) {
+      alert("로그인이 필요합니다.");
+      location.href = "/index.html";
+    }
+    // 토큰 페이로드 검사
+    let payload;
+    try {
+      payload = JSON.parse(atob(token.split(".")[1]));
+    } catch {
+      localStorage.removeItem("token");
+      alert("유효하지 않은 토큰입니다.");
+      location.href = "/index.html";
+    }
+    if (payload.role !== "admin") {
+      alert("관리자 권한이 필요합니다.");
+      location.href = "/index.html";
+    }
+
+    document.getElementById("logout").onclick = () => {
+      localStorage.removeItem("token");
+      location.href = "/index.html";
+    };
+
+    const headers = {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`
+    };
+
+    async function fetchAndRender() {
+      // 1) pending users
+      const pendingRes = await fetch("/users/pending", { headers });
+      const pendings = await pendingRes.json();
+      const pendingList = document.getElementById("pendingList");
+      pendingList.innerHTML = "";
+      if (pendings.length === 0) {
+        pendingList.innerHTML = "<li>승인 대기 중인 사용자가 없습니다.</li>";
+      } else {
+        pendings.forEach(u => {
+          const li = document.createElement("li");
+          li.textContent = `${u.username} (${u.login_id})`;
+          // Approve
+          const approveBtn = document.createElement("button");
+          approveBtn.textContent = "승인";
+          approveBtn.onclick = async () => {
+            await fetch(`/users/${u.id}/approve`, {
+              method: "PATCH",
+              headers
+            });
+            fetchAndRender();
+          };
+          // Delete
+          const delBtn = document.createElement("button");
+          delBtn.textContent = "삭제";
+          delBtn.onclick = async () => {
+            await fetch(`/users/${u.id}`, {
+              method: "DELETE",
+              headers
+            });
+            fetchAndRender();
+          };
+          li.append(approveBtn, delBtn);
+          pendingList.append(li);
+        });
+      }
+
+      // 2) normal users
+      const usersRes = await fetch("/users", { headers });
+      const users = await usersRes.json();
+      const userList = document.getElementById("userList");
+      userList.innerHTML = "";
+      const normals = users.filter(u => u.role === "user");
+      if (normals.length === 0) {
+        userList.innerHTML = "<li>등록된 일반 사용자가 없습니다.</li>";
+      } else {
+        normals.forEach(u => {
+          const li = document.createElement("li");
+          li.textContent = `${u.username} (${u.login_id})`;
+          // Delete
+          const delBtn = document.createElement("button");
+          delBtn.textContent = "삭제";
+          delBtn.onclick = async () => {
+            await fetch(`/users/${u.id}`, {
+              method: "DELETE",
+              headers
+            });
+            fetchAndRender();
+          };
+          li.append(delBtn);
+          userList.append(li);
+        });
+      }
+    }
+
+    fetchAndRender();
+  </script>
+</body>
+</html>

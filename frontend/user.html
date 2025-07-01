@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>사용자 페이지</title>
+</head>
+<body>
+  <h1>👤 User Dashboard</h1>
+  <p>환영합니다, 일반 사용자님!</p>
+  <button id="logout">로그아웃</button>
+
+  <script>
+    // 1) 토큰 검사
+    const token = localStorage.getItem("token");
+    if (!token) {
+      alert("로그인이 필요합니다.");
+      location.href = "/index.html";
+    }
+
+    // 2) 역할 확인 (토큰에서 직접 decode해도 되고, /auth/me 같은 엔드포인트를 호출해도 됩니다)
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    if (payload.role !== "user") {
+      alert("접근 권한이 없습니다.");
+      location.href = "/index.html";
+    }
+
+    // 3) 로그아웃 버튼
+    document.getElementById("logout").onclick = () => {
+      localStorage.removeItem("token");
+      location.href = "/index.html";
+    };
+  </script>
+</body>
+</html>
