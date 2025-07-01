@@ -1,3 +1,18 @@
 {
-    "sqltools.connections": []
+    "sqltools.connections": [
+        {
+            "mysqlOptions": {
+                "authProtocol": "default",
+                "enableSsl": "Disabled"
+            },
+            "previewLimit": 50,
+            "server": "nm.cneaky04qz63.ap-northeast-2.rds.amazonaws.com",
+            "port": 3306,
+            "driver": "MySQL",
+            "name": "nm-rds",
+            "database": "nm",
+            "username": "nm_admin",
+            "password": "NMnm0629###"
+        }
+    ]
 }

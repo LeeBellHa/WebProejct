@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>회원가입 테스트</title>
+</head>
+<body>
+  <h1>회원가입 테스트</h1>
+  <form id="regForm">
+    <label>Login ID: <input name="login_id" required /></label><br/>
+    <label>Password: <input type="password" name="password" required /></label><br/>
+    <label>Username: <input name="username" required /></label><br/>
+    <label>Student ID: <input name="student_id" required /></label><br/>
+    <label>Major: <input name="major" required /></label><br/>
+    <label>Phone: <input name="phone" /></label><br/>
+    <button type="submit">가입하기</button>
+  </form>
+  <pre id="result"></pre>
+  <script>
+    const form = document.getElementById("regForm");
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const data = {
+        login_id:   form.login_id.value,
+        password:   form.password.value,
+        username:   form.username.value,
+        student_id: form.student_id.value,
+        major:      form.major.value,
+        phone:      form.phone.value || null
+      };
+      try {
+        const res = await fetch("/users/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+        const json = await res.json();
+        document.getElementById("result").textContent =
+          JSON.stringify(json, null, 2);
+      } catch (err) {
+        document.getElementById("result").textContent = err;
+      }
+    });
+  </script>
+</body>
+</html>
