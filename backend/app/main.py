@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -10,6 +11,7 @@ from app.database import Base, engine
 from app.routers.user import router as user_router
 from app.routers.health import router as health_router
 from app.routers.auth import router as auth_router  # 로그인/토큰 라우터
+from app.routers.room import router as room_router
 
 # import app.models
 
