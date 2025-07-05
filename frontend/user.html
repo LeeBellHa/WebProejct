@@ -1,3 +1,4 @@
+<!-- backend/static/user.html -->
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -15,7 +16,6 @@
 </head>
 <body>
   <h1>👤 User Dashboard</h1>
-  <!-- dynamic greeting -->
   <p id="greeting">환영합니다, 사용자님!</p>
   <button id="logout">로그아웃</button>
 
@@ -31,6 +31,12 @@
     <div id="slotsContainer" class="slots"></div>
   </div>
 
+  <!-- ↓ 내 예약 내역 섹션 -->
+  <div class="section" id="historySection">
+    <h2>📅 내 예약 내역</h2>
+    <ul id="historyList">로딩 중...</ul>
+  </div>
+
   <script>
     const API_BASE = '/api';
     const token = localStorage.getItem('token');
@@ -38,27 +44,20 @@
       alert('로그인이 필요합니다.');
       location.href = '/index.html';
     }
-    // JWT 페이로드 디코드
     const payload = JSON.parse(atob(token.split('.')[1]));
-
-    // role 검사
     if (payload.role !== 'user') {
       alert('접근 권한이 없습니다.');
       location.href = '/index.html';
     }
-
-    // greeting 업데이트 (payload.username 사용)
     const username = payload.username || payload.sub || '사용자';
     document.getElementById('greeting').textContent =
       `환영합니다, ${username}님!`;
-
-    // 로그아웃
     document.getElementById('logout').onclick = () => {
       localStorage.removeItem('token');
       location.href = '/index.html';
     };
 
-    // 1) 연습실 목록 불러오기
+    // 1) 연습실 목록
     async function loadRooms() {
       try {
         const res = await fetch(`${API_BASE}/rooms/`, {
@@ -143,15 +142,42 @@
         }
         alert('예약이 완료되었습니다.');
         loadSlots();
+        loadHistory();
       } catch (e) {
         console.error(e);
         alert('예약 실패: ' + e.message);
       }
     }
 
+    // 5) 내 예약 내역 불러오기
+    async function loadHistory() {
+      try {
+        const res = await fetch(`${API_BASE}/bookings/me`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error('예약 내역 조회 실패');
+        const items = await res.json();
+        const list = document.getElementById("historyList");
+        if (!items.length) {
+          list.innerHTML = "<li>예약 내역이 없습니다.</li>";
+        } else {
+          list.innerHTML = "";
+          items.forEach(b => {
+            const li = document.createElement("li");
+            li.textContent = `${b.date} ${b.start_time}–${b.end_time} / ${b.room?.name || b.room_id}`;
+            list.appendChild(li);
+          });
+        }
+      } catch (e) {
+        console.error(e);
+        alert('내 예약 내역을 불러오는 중 오류가 발생했습니다.');
+      }
+    }
+
     // 초기 실행
     loadRooms();
     document.getElementById('loadSlots').onclick = loadSlots;
+    loadHistory();
   </script>
 </body>
 </html>

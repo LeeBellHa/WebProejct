@@ -1,3 +1,4 @@
+<!-- backend/static/admin.html -->
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -16,6 +17,12 @@
   <h1>🛠️ Admin Dashboard</h1>
   <button id="logout">로그아웃</button>
 
+  <!-- ↓ 예약 내역 섹션 -->
+  <section>
+    <h2>📅 예약 내역</h2>
+    <ul id="bookingList">로딩 중...</ul>
+  </section>
+
   <section>
     <h2>승인 대기 사용자</h2>
     <ul id="pendingList">로딩 중...</ul>
@@ -32,7 +39,7 @@
       alert("로그인이 필요합니다.");
       location.href = "/index.html";
     }
-    // 토큰 페이로드 검사
+
     let payload;
     try {
       payload = JSON.parse(atob(token.split(".")[1]));
@@ -57,7 +64,22 @@
     };
 
     async function fetchAndRender() {
-      // 1) pending users
+      // 0) 전체/내 예약 내역 (admin이면 전체 예약, user면 본인 예약)
+      const bookingRes = await fetch("/bookings/me", { headers });
+      const bookings = await bookingRes.json();
+      const bookingList = document.getElementById("bookingList");
+      bookingList.innerHTML = "";
+      if (bookings.length === 0) {
+        bookingList.innerHTML = "<li>예약 내역이 없습니다.</li>";
+      } else {
+        bookings.forEach(b => {
+          const li = document.createElement("li");
+          li.textContent = `${b.date} ${b.start_time}–${b.end_time} / ${b.room?.name || b.room_id}`;
+          bookingList.append(li);
+        });
+      }
+
+      // 1) 승인 대기 사용자
       const pendingRes = await fetch("/users/pending", { headers });
       const pendings = await pendingRes.json();
       const pendingList = document.getElementById("pendingList");
@@ -68,7 +90,6 @@
         pendings.forEach(u => {
           const li = document.createElement("li");
           li.textContent = `${u.username} (${u.login_id})`;
-          // Approve
           const approveBtn = document.createElement("button");
           approveBtn.textContent = "승인";
           approveBtn.onclick = async () => {
@@ -78,7 +99,6 @@
             });
             fetchAndRender();
           };
-          // Delete
           const delBtn = document.createElement("button");
           delBtn.textContent = "삭제";
           delBtn.onclick = async () => {
@@ -93,7 +113,7 @@
         });
       }
 
-      // 2) normal users
+      // 2) 일반 사용자
       const usersRes = await fetch("/users/", { headers });
       const users = await usersRes.json();
       const userList = document.getElementById("userList");
@@ -105,7 +125,6 @@
         normals.forEach(u => {
           const li = document.createElement("li");
           li.textContent = `${u.username} (${u.login_id})`;
-          // Delete
           const delBtn = document.createElement("button");
           delBtn.textContent = "삭제";
           delBtn.onclick = async () => {

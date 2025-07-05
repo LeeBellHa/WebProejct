@@ -1,4 +1,6 @@
 # backend/app/routers/booking.py
+
+from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -6,6 +8,7 @@ from app.database import get_db
 from app.models.booking import Booking
 from app.schemas.booking import BookingCreate, BookingRead
 from app.routers.auth import get_current_user
+from app.routers.user import get_current_admin_user  # 관리자 체크용 의존성
 
 router = APIRouter(prefix="/bookings", tags=["bookings"])
 
@@ -18,7 +21,7 @@ router = APIRouter(prefix="/bookings", tags=["bookings"])
 def create_booking(
     booking_in: BookingCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user)
+    current_user = Depends(get_current_user)
 ):
     # 30분 단위 검사
     if booking_in.start_time.minute % 30 != 0 or booking_in.end_time.minute % 30 != 0:
@@ -36,6 +39,7 @@ def create_booking(
     ).first()
     if overlap:
         raise HTTPException(status_code=400, detail="Time slot already booked")
+
     booking = Booking(
         user_id=current_user.user_id,
         room_id=booking_in.room_id,
@@ -47,3 +51,25 @@ def create_booking(
     db.commit()
     db.refresh(booking)
     return booking
+
+@router.get(
+    "/me",
+    response_model=List[BookingRead],
+    summary="내 예약 내역 조회"
+)
+def read_own_bookings(
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """
+    일반 사용자는 자신의 예약만, 관리자는 전체 예약을 조회할 수 있도록 분기
+    """
+    if current_user.role == "admin":
+        # admin 계정일 경우 전체 예약 내역 반환
+        return db.query(Booking).all()
+    # user 계정은 본인 예약만
+    return (
+        db.query(Booking)
+          .filter(Booking.user_id == current_user.user_id)
+          .all()
+    )

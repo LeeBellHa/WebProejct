@@ -12,6 +12,7 @@ from app.routers.health import router as health_router
 from app.routers.auth import router as auth_router
 from app.routers.room import router as room_router
 from app.routers.booking import router as booking_router
+from app.routers import auth, user, booking 
 
 # 1) 테이블 자동생성 (개발/테스트 용)
 Base.metadata.create_all(bind=engine)
@@ -34,6 +35,8 @@ app.include_router(auth_router)                     # /auth
 # 연습실/예약 라우터를 /api 아래에 한 번만 붙입니다.
 app.include_router(room_router,    prefix="/api", tags=["rooms"])     # → /api/rooms, /api/rooms/{id}/slots
 app.include_router(booking_router, prefix="/api", tags=["bookings"])  # → /api/bookings
+app.include_router(booking.router)   
+
 
 # 5) 정적 파일 서빙 설정
 #    프로젝트 루트의 frontend 폴더 전체를 루트("/") 경로로 마운트합니다.
