@@ -48,8 +48,7 @@ def login(
     return {
         "access_token": token,
         "token_type":   "bearer",
-        # 필요하다면 여기에도 추가 필드를 반환할 수 있지만,
-        # 프론트엔드에서는 토큰만 있으면 디코딩으로 꺼낼 수 있습니다.
+        "role":         user.role,  # ← 로그인 응답에 role 필드 추가
     }
 
 
@@ -61,9 +60,15 @@ def get_current_user(
         data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
         login_id = data.get("sub")
     except jwt.JWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token"
+        )
 
     user = db.query(User).filter(User.login_id == login_id).first()
     if not user:
-        raise HTTPException(status_code=401, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found"
+        )
     return user

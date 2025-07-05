@@ -23,25 +23,37 @@
     const form = document.getElementById("loginForm");
     form.addEventListener("submit", async e => {
       e.preventDefault();
-      const data = {
+
+      // 1) form 데이터 준비
+      const data = new URLSearchParams({
         username: form.login_id.value,  // OAuth2PasswordRequestForm expects 'username'
         password: form.password.value
-      };
+      });
+
+      // 2) 로그인 API 호출
       const res = await fetch("/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams(data)
+        body: data
       });
+
+      // 3) 실패 처리
       if (!res.ok) {
         const err = await res.json();
         alert(err.detail || "로그인 실패");
         return;
       }
+
+      // 4) 성공 시 access_token 과 role 추출
       const { access_token, role } = await res.json();
+
+      // 5) pending 상태 체크
       if (role === "pending") {
         alert("아직 승인 대기 중인 계정입니다. 관리자 승인 후 재접속 해 주세요.");
         return;
       }
+
+      // 6) 토큰 저장 및 role 분기 리다이렉트
       localStorage.setItem("token", access_token);
       if (role === "admin") {
         location.href = "/admin.html";
@@ -50,7 +62,7 @@
       }
     });
 
-    // 회원가입 버튼 클릭 시 루트의 register_test.html 로 이동
+    // 회원가입 버튼 클릭 시 이동
     document.getElementById("goRegister").addEventListener("click", () => {
       location.href = "/register_test.html";
     });
