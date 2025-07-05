@@ -13,6 +13,9 @@ from app.routers.health import router as health_router
 from app.routers.auth import router as auth_router  # 로그인/토큰 라우터
 from app.routers.room import router as room_router
 
+# import app.models
+
+
 # 1) 테이블 자동생성 (개발/테스트 용)
 Base.metadata.create_all(bind=engine)
 

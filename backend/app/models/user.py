@@ -27,5 +27,5 @@ class User(Base): #사용자 테이블을 나타내는 ORM모델 클래스, 실�
     phone = Column(String(20), nullable=True) #핸드폰번호
     role = Column(SAEnum(*USER_ROLES, name="user_roles"), default="pending", nullable=False)
 
-    # 예약 관계 (추후 정의)
-    # reservations = relationship("Reservation", back_populates="user")
+    # 예약 관계
+    bookings = relationship("Booking", back_populates="user", cascade="all, delete-orphan")
