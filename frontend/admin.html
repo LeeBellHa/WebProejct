@@ -72,7 +72,7 @@
           const approveBtn = document.createElement("button");
           approveBtn.textContent = "승인";
           approveBtn.onclick = async () => {
-            await fetch(`/users/${u.id}/approve`, {
+            await fetch(`/users/${u.user_id}/approve`, {
               method: "PATCH",
               headers
             });
@@ -82,7 +82,7 @@
           const delBtn = document.createElement("button");
           delBtn.textContent = "삭제";
           delBtn.onclick = async () => {
-            await fetch(`/users/${u.id}`, {
+            await fetch(`/users/${u.user_id}`, {
               method: "DELETE",
               headers
             });
@@ -94,7 +94,7 @@
       }
 
       // 2) normal users
-      const usersRes = await fetch("/users", { headers });
+      const usersRes = await fetch("/users/", { headers });
       const users = await usersRes.json();
       const userList = document.getElementById("userList");
       userList.innerHTML = "";
@@ -109,7 +109,7 @@
           const delBtn = document.createElement("button");
           delBtn.textContent = "삭제";
           delBtn.onclick = async () => {
-            await fetch(`/users/${u.id}`, {
+            await fetch(`/users/${u.user_id}`, {
               method: "DELETE",
               headers
             });

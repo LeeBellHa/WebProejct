@@ -18,7 +18,7 @@ class User(Base): #사용자 테이블을 나타내는 ORM모델 클래스, 실�
     __tablename__ = "users"
 
     # 내부 고유번호 (PK)
-    id = Column(Integer, primary_key=True, index=True) #id, 기본키 설정, 레코드 식별용
+    user_id = Column(Integer, primary_key=True, index=True) #id, 기본키 설정, 레코드 식별용
     login_id = Column(String(50), unique=True, index=True, nullable=False) #로그인할때 쓰는 id
     password = Column(String(128), nullable=False)
     username = Column(String(100), nullable=False) #사용자의 이름

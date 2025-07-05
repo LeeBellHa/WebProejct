@@ -55,11 +55,9 @@ def register_user(
 
 
 # ─── 2) 전체 사용자 조회 (관리자) ────────────────────────────────────────────────
-@router.get(
-    "/",
-    response_model=List[UserRead],
-    summary="전체 사용자 조회",
-)
+@router.get("",  response_model=List[UserRead], summary="전체 사용자 조회")
+@router.get("/", response_model=List[UserRead], summary="전체 사용자 조회")
+
 def list_all_users(
     db: Session = Depends(get_db),
     _: User = Depends(get_current_admin_user),
@@ -91,7 +89,7 @@ def approve_user(
     db: Session = Depends(get_db),
     _: User = Depends(get_current_admin_user),
 ):
-    user = db.get(User, user_id)
+    user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     if user.role != "pending":
@@ -117,7 +115,7 @@ def delete_user_by_admin(
     db: Session = Depends(get_db),
     _: User = Depends(get_current_admin_user),
 ):
-    user = db.get(User, user_id)
+    user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     db.delete(user)
@@ -135,7 +133,7 @@ def delete_user(
     db: Session = Depends(get_db),
     _: User = Depends(get_current_admin_user),
 ):
-    user = db.get(User, user_id)
+    user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     db.delete(user)
