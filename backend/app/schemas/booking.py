@@ -1,6 +1,12 @@
+# schemas/booking.py
 from datetime import date, time, datetime
-from typing import Optional
+from typing import Optional, List
 from pydantic import BaseModel
+
+class TimeSlot(BaseModel):
+    start: datetime
+    end: datetime
+    available: bool
 
 class BookingBase(BaseModel):
     date:       date
@@ -8,7 +14,6 @@ class BookingBase(BaseModel):
     end_time:   time
 
 class BookingCreate(BookingBase):
-    user_id: int  # 예약자 PK
     room_id: int  # 예약할 방의 PK
 
 class BookingUpdate(BaseModel):

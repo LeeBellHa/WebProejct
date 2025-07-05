@@ -1,17 +1,22 @@
+# backend/app/routers/room.py
+
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
+from datetime import datetime, date, time, timedelta
 
 from app.database import get_db
 from app.models.room import Room
+from app.models.booking import Booking
 from app.schemas.room import RoomCreate, RoomRead, RoomUpdate
+from app.schemas.booking import TimeSlot
 from app.routers.auth import get_current_user
 from app.routers.user import get_current_admin_user
 
-router = APIRouter(prefix="/room", tags=["room"])
+router = APIRouter(prefix="/rooms", tags=["rooms"])
 
 # 관리자 전용 의존성
-def admin_only(current_user = Depends(get_current_admin_user)):
+def admin_only(current_user=Depends(get_current_admin_user)):
     return current_user
 
 # 1) 방 생성 (관리자)
@@ -24,18 +29,18 @@ def admin_only(current_user = Depends(get_current_admin_user)):
 def create_room(
     room_in: RoomCreate,
     db: Session = Depends(get_db),
-    _: Room = Depends(admin_only),
+    _: object = Depends(admin_only),
 ):
-    # 중복 확인: 방 번호로 체크
-    if db.query(Room).filter(Room.room_number == room_in.room_number).first():
+    # 중복 확인: 방 이름으로 체크
+    if db.query(Room).filter(Room.room_name == room_in.room_name).first():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="이미 존재하는 방 번호입니다."
+            detail="이미 존재하는 방 이름입니다."
         )
     room = Room(
-        room_number=room_in.room_number,
-        is_empty=room_in.is_empty,
-        remark=room_in.remark
+        room_name=room_in.room_name,
+        state=room_in.state,
+        equipment=room_in.equipment
     )
     db.add(room)
     db.commit()
@@ -48,9 +53,9 @@ def create_room(
     response_model=List[RoomRead],
     summary="전체 방 조회",
 )
-def list_room(
+def list_rooms(
     db: Session = Depends(get_db),
-    _: object = Depends(get_current_user),  # 로그인만 하면 OK
+    _: object = Depends(get_current_user),
 ):
     return db.query(Room).all()
 
@@ -80,7 +85,7 @@ def update_room(
     room_id: int,
     room_in: RoomUpdate,
     db: Session = Depends(get_db),
-    _: Room = Depends(admin_only),
+    _: object = Depends(admin_only),
 ):
     room = db.get(Room, room_id)
     if not room:
@@ -100,11 +105,45 @@ def update_room(
 def delete_room(
     room_id: int,
     db: Session = Depends(get_db),
-    _: Room = Depends(admin_only),
+    _: object = Depends(admin_only),
 ):
     room = db.get(Room, room_id)
     if not room:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Room not found")
     db.delete(room)
     db.commit()
-    return
+
+# 6) 슬롯 조회 (예약 날짜 기준)
+@router.get(
+    "/{room_id}/slots",
+    response_model=List[TimeSlot],
+    summary="방 시간표 조회",
+)
+def get_room_slots(
+    room_id: int,
+    booking_date: date = Query(..., description="예약 날짜 (YYYY-MM-DD)"),
+    db: Session = Depends(get_db),
+    _: object = Depends(get_current_user),
+):
+    room = db.get(Room, room_id)
+    if not room:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Room not found")
+
+    start_dt = datetime.combine(booking_date, time(9, 0))
+    end_dt = datetime.combine(booking_date, time(23, 0))
+
+    slots: List[TimeSlot] = []
+    current = start_dt
+    while current < end_dt:
+        next_dt = current + timedelta(minutes=30)
+        booked = db.query(Booking).filter(
+            Booking.room_id == room_id,
+            Booking.date == booking_date,
+            Booking.start_time < next_dt,
+            Booking.end_time > current
+        ).first() is not None
+
+        slots.append(TimeSlot(start=current, end=next_dt, available=not booked))
+        current = next_dt
+
+    return slots

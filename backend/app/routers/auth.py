@@ -33,16 +33,23 @@ def login(
             detail="아직 승인 대기 중인 계정입니다. 관리자 승인을 기다려 주세요."
         )
 
-    # 3) JWT 발급 (payload에 role 포함)
-    token = jwt.encode(
-        {"sub": user.login_id, "role": user.role},
-        SECRET_KEY,
-        algorithm="HS256"
-    )
+    # 3) JWT 발급 (payload에 user 전체 정보 담기)
+    payload = {
+        "sub":         user.login_id,
+        "user_id":     user.id,
+        "username":    user.username,
+        "student_id":  user.student_id,
+        "major":       user.major,
+        "phone":       user.phone,
+        "role":        user.role,
+    }
+    token = jwt.encode(payload, SECRET_KEY, algorithm="HS256")
+
     return {
         "access_token": token,
-        "token_type": "bearer",
-        "role": user.role
+        "token_type":   "bearer",
+        # 필요하다면 여기에도 추가 필드를 반환할 수 있지만,
+        # 프론트엔드에서는 토큰만 있으면 디코딩으로 꺼낼 수 있습니다.
     }
 
 
@@ -51,8 +58,8 @@ def get_current_user(
     db: Session = Depends(get_db)
 ) -> User:
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-        login_id = payload.get("sub")
+        data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        login_id = data.get("sub")
     except jwt.JWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
 

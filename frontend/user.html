@@ -2,33 +2,156 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <title>사용자 페이지</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>User Dashboard</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    .section { margin-top: 40px; }
+    .slots { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 10px; }
+    .slot { padding: 10px; border: 1px solid #ccc; border-radius: 4px; text-align: center; cursor: pointer; }
+    .slot.unavailable { background: #f5f5f5; color: #aaa; cursor: not-allowed; }
+    .slot.available:hover { background: #e0f7fa; }
+  </style>
 </head>
 <body>
   <h1>👤 User Dashboard</h1>
-  <p>환영합니다, 일반 사용자님!</p>
+  <!-- dynamic greeting -->
+  <p id="greeting">환영합니다, 사용자님!</p>
   <button id="logout">로그아웃</button>
 
+  <div class="section" id="bookingSection">
+    <h2>연습실 예약</h2>
+    <label for="roomSelect">연습실 선택:</label>
+    <select id="roomSelect">
+      <option value="" disabled selected>연습실을 선택하세요</option>
+    </select>
+    <label for="bookingDate">날짜 선택:</label>
+    <input type="date" id="bookingDate" />
+    <button id="loadSlots">시간표 불러오기</button>
+    <div id="slotsContainer" class="slots"></div>
+  </div>
+
   <script>
-    // 1) 토큰 검사
-    const token = localStorage.getItem("token");
+    const API_BASE = '/api';
+    const token = localStorage.getItem('token');
     if (!token) {
-      alert("로그인이 필요합니다.");
-      location.href = "/index.html";
+      alert('로그인이 필요합니다.');
+      location.href = '/index.html';
+    }
+    // JWT 페이로드 디코드
+    const payload = JSON.parse(atob(token.split('.')[1]));
+
+    // role 검사
+    if (payload.role !== 'user') {
+      alert('접근 권한이 없습니다.');
+      location.href = '/index.html';
     }
 
-    // 2) 역할 확인 (토큰에서 직접 decode해도 되고, /auth/me 같은 엔드포인트를 호출해도 됩니다)
-    const payload = JSON.parse(atob(token.split(".")[1]));
-    if (payload.role !== "user") {
-      alert("접근 권한이 없습니다.");
-      location.href = "/index.html";
-    }
+    // greeting 업데이트 (payload.username 사용)
+    const username = payload.username || payload.sub || '사용자';
+    document.getElementById('greeting').textContent =
+      `환영합니다, ${username}님!`;
 
-    // 3) 로그아웃 버튼
-    document.getElementById("logout").onclick = () => {
-      localStorage.removeItem("token");
-      location.href = "/index.html";
+    // 로그아웃
+    document.getElementById('logout').onclick = () => {
+      localStorage.removeItem('token');
+      location.href = '/index.html';
     };
+
+    // 1) 연습실 목록 불러오기
+    async function loadRooms() {
+      try {
+        const res = await fetch(`${API_BASE}/rooms/`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error('방 목록 조회 실패');
+        const rooms = await res.json();
+        const select = document.getElementById('roomSelect');
+        select.innerHTML = '<option value="" disabled selected>연습실을 선택하세요</option>';
+        rooms.forEach(room => {
+          const opt = document.createElement('option');
+          opt.value = room.room_id;
+          opt.textContent = room.room_name;
+          select.appendChild(opt);
+        });
+      } catch (e) {
+        console.error(e);
+        alert('연습실 목록을 불러오는 중 오류가 발생했습니다.');
+      }
+    }
+
+    // 2) 슬롯 불러오기
+    async function loadSlots() {
+      const roomId = document.getElementById('roomSelect').value;
+      const date   = document.getElementById('bookingDate').value;
+      if (!roomId || !date) {
+        return alert('연습실과 날짜를 모두 선택해주세요.');
+      }
+      try {
+        const res = await fetch(
+          `${API_BASE}/rooms/${roomId}/slots?booking_date=${date}`,
+          { headers: { 'Authorization': `Bearer ${token}` } }
+        );
+        if (!res.ok) throw new Error('시간표 조회 실패');
+        const slots = await res.json();
+        renderSlots(slots, date, roomId);
+      } catch (e) {
+        console.error(e);
+        alert('시간표를 불러오는 중 오류가 발생했습니다.');
+      }
+    }
+
+    // 3) 슬롯 렌더링
+    function renderSlots(slots, date, roomId) {
+      const container = document.getElementById('slotsContainer');
+      container.innerHTML = '';
+      slots.forEach(slot => {
+        const div = document.createElement('div');
+        div.className = 'slot ' + (slot.available ? 'available' : 'unavailable');
+        const start = new Date(slot.start)
+                        .toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+        const end   = new Date(slot.end)
+                        .toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+        div.textContent = `${start} - ${end}`;
+        if (slot.available) {
+          div.onclick = () => bookSlot(date, roomId, slot);
+        }
+        container.appendChild(div);
+      });
+    }
+
+    // 4) 예약 생성
+    async function bookSlot(date, roomId, slot) {
+      const bookingPayload = {
+        room_id:    parseInt(roomId, 10),
+        date:       date,
+        start_time: slot.start.split('T')[1],
+        end_time:   slot.end.split('T')[1]
+      };
+      try {
+        const res = await fetch(`${API_BASE}/bookings/`, {
+          method: 'POST',
+          headers: {
+            'Content-Type':  'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(bookingPayload)
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.detail || res.statusText);
+        }
+        alert('예약이 완료되었습니다.');
+        loadSlots();
+      } catch (e) {
+        console.error(e);
+        alert('예약 실패: ' + e.message);
+      }
+    }
+
+    // 초기 실행
+    loadRooms();
+    document.getElementById('loadSlots').onclick = loadSlots;
   </script>
 </body>
 </html>
