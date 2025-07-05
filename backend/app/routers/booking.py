@@ -37,7 +37,7 @@ def create_booking(
     if overlap:
         raise HTTPException(status_code=400, detail="Time slot already booked")
     booking = Booking(
-        user_id=current_user.id,
+        user_id=current_user.user_id,
         room_id=booking_in.room_id,
         date=booking_in.date,
         start_time=booking_in.start_time,

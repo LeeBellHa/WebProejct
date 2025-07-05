@@ -36,7 +36,7 @@ def login(
     # 3) JWT 발급 (payload에 user 전체 정보 담기)
     payload = {
         "sub":         user.login_id,
-        "user_id":     user.id,
+        "user_id":     user.user_id,
         "username":    user.username,
         "student_id":  user.student_id,
         "major":       user.major,

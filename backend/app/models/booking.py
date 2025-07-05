@@ -8,7 +8,7 @@ class Booking(Base):
     __tablename__ = "bookings"
 
     booking_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    user_id    = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id    = Column(Integer, ForeignKey("users.user_id"), nullable=False)
     room_id    = Column(Integer, ForeignKey("rooms.room_id"), nullable=False)
     date       = Column(Date, nullable=False)
     start_time = Column(Time, nullable=False)
