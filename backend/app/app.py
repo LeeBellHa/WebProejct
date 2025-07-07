@@ -38,6 +38,10 @@ app = FastAPI()
 from app.routers.user import router as user_router
 app.include_router(user_router)
 
+from app.routers.booking import router as booking_router
+app.include_router(booking_router)
+
+
 # ─── 5) 프론트엔드 전체 정적 서빙 ─────────────────────────
 frontend_dir = Path(__file__).parent.parent.parent / "frontend"
 app.mount(

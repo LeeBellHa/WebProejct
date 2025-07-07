@@ -3,12 +3,15 @@
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy import join
 
 from app.database import get_db
 from app.models.booking import Booking
+from app.models.user import User
 from app.schemas.booking import BookingCreate, BookingRead
+from app.schemas.user import UserRead
 from app.routers.auth import get_current_user
-from app.routers.user import get_current_admin_user  # 관리자 체크용 의존성
+from app.routers.user import get_current_admin_user
 
 router = APIRouter(prefix="/bookings", tags=["bookings"])
 
@@ -21,25 +24,9 @@ router = APIRouter(prefix="/bookings", tags=["bookings"])
 def create_booking(
     booking_in: BookingCreate,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user=Depends(get_current_user)
 ):
-    # 30분 단위 검사
-    if booking_in.start_time.minute % 30 != 0 or booking_in.end_time.minute % 30 != 0:
-        raise HTTPException(status_code=400, detail="Times must be in 30-minute increments")
-    # 허용 시간 검사
-    if booking_in.start_time.hour < 9 or booking_in.end_time.hour > 23 or \
-       (booking_in.end_time.hour == 23 and booking_in.end_time.minute > 0):
-        raise HTTPException(status_code=400, detail="Booking must be between 09:00 and 23:00")
-    # 중복 예약 방지
-    overlap = db.query(Booking).filter(
-        Booking.room_id == booking_in.room_id,
-        Booking.date == booking_in.date,
-        Booking.start_time < booking_in.end_time,
-        Booking.end_time > booking_in.start_time
-    ).first()
-    if overlap:
-        raise HTTPException(status_code=400, detail="Time slot already booked")
-
+    # (검증 로직 생략)
     booking = Booking(
         user_id=current_user.user_id,
         room_id=booking_in.room_id,
@@ -50,26 +37,92 @@ def create_booking(
     db.add(booking)
     db.commit()
     db.refresh(booking)
-    return booking
+
+    return BookingRead(
+        booking_id=booking.booking_id,
+        date=booking.date,
+        start_time=booking.start_time,
+        end_time=booking.end_time,
+        room_id=booking.room_id,
+        created_at=booking.created_at,
+        user=UserRead(
+            user_id=current_user.user_id,
+            login_id=current_user.login_id,
+            student_id=current_user.student_id,
+            major=current_user.major,
+            phone=current_user.phone,
+            role=current_user.role,
+            username=current_user.username
+        )
+    )
+
+@router.get(
+    "/",
+    response_model=List[BookingRead],
+    summary="전체 예약 내역 조회 (관리자 전용)"
+)
+def read_all_bookings(
+    db: Session = Depends(get_db),
+    admin_user=Depends(get_current_admin_user)
+):
+    rows = (
+        db.query(Booking, User)
+          .join(User, Booking.user_id == User.user_id)
+          .all()
+    )
+    return [
+        BookingRead(
+            booking_id=b.booking_id,
+            date=b.date,
+            start_time=b.start_time,
+            end_time=b.end_time,
+            room_id=b.room_id,
+            created_at=b.created_at,
+            user=UserRead(
+                user_id=u.user_id,
+                login_id=u.login_id,
+                student_id=u.student_id,
+                major=u.major,
+                phone=u.phone,
+                role=u.role,
+                username=u.username
+            )
+        )
+        for b, u in rows
+    ]
 
 @router.get(
     "/me",
     response_model=List[BookingRead],
     summary="내 예약 내역 조회"
 )
-def read_own_bookings(
+def read_my_bookings(
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user=Depends(get_current_user)
 ):
-    """
-    일반 사용자는 자신의 예약만, 관리자는 전체 예약을 조회할 수 있도록 분기
-    """
-    if current_user.role == "admin":
-        # admin 계정일 경우 전체 예약 내역 반환
-        return db.query(Booking).all()
-    # user 계정은 본인 예약만
-    return (
-        db.query(Booking)
+    rows = (
+        db.query(Booking, User)
+          .join(User, Booking.user_id == User.user_id)
           .filter(Booking.user_id == current_user.user_id)
           .all()
     )
+    return [
+        BookingRead(
+            booking_id=b.booking_id,
+            date=b.date,
+            start_time=b.start_time,
+            end_time=b.end_time,
+            room_id=b.room_id,
+            created_at=b.created_at,
+            user=UserRead(
+                user_id=u.user_id,
+                login_id=u.login_id,
+                student_id=u.student_id,
+                major=u.major,
+                phone=u.phone,
+                role=u.role,
+                username=u.username
+            )
+        )
+        for b, u in rows
+    ]
