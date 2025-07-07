@@ -1,0 +1,116 @@
+<!-- backend/static/bookings.html -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>예약 내역 관리</title>
+  <style>
+    body { font-family: sans-serif; max-width: 1000px; margin: 2em auto; }
+    h1 { margin-bottom: 1em; }
+    #controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1em; }
+    #searchInput { padding: .5em; font-size: 1em; width: 200px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: .75em; border: 1px solid #ccc; text-align: left; }
+    th { background: #f5f5f5; }
+  </style>
+</head>
+<body>
+  <div id="controls">
+    <h1>📅 전체 예약 내역</h1>
+    <input type="text" id="searchInput" placeholder="사용자명 검색" />
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>사용자명</th>
+        <th>예약 날짜</th>
+        <th>예약 시간</th>
+      </tr>
+    </thead>
+    <tbody id="bookingBody">
+      <tr><td colspan="3">로딩 중...</td></tr>
+    </tbody>
+  </table>
+
+  <script>
+    const token = localStorage.getItem("token");
+    if (!token) {
+      alert("로그인이 필요합니다.");
+      location.href = "/index.html";
+    }
+
+    let payload;
+    try {
+      payload = JSON.parse(atob(token.split(".")[1]));
+    } catch {
+      localStorage.removeItem("token");
+      alert("유효하지 않은 토큰입니다.");
+      location.href = "/index.html";
+    }
+    if (payload.role !== "admin" && payload.role !== "user") {
+      alert("권한 오류");
+      location.href = "/index.html";
+    }
+
+    const headers = {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`
+    };
+
+    let allBookings = [];
+
+    async function loadBookings() {
+      // 관리자는 전체, 일반 사용자는 본인
+      const url = payload.role === "admin" ? "/bookings/" : "/bookings/me";
+      const res = await fetch(url, { headers });
+      if (!res.ok) {
+        console.error("예약 조회 실패:", res.status, await res.text());
+        return;
+      }
+      allBookings = await res.json();
+      console.log("가져온 예약 데이터:", allBookings);
+
+      allBookings.sort((a, b) => {
+        const da = new Date(`${a.date}T${a.start_time}`);
+        const db = new Date(`${b.date}T${b.start_time}`);
+        return da - db;
+      });
+
+      renderTable(allBookings);
+    }
+
+    function renderTable(list) {
+      const tbody = document.getElementById("bookingBody");
+      tbody.innerHTML = "";
+
+      if (list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="3">조건에 맞는 예약이 없습니다.</td></tr>`;
+        return;
+      }
+
+      list.forEach(b => {
+        const tr = document.createElement("tr");
+        // user 객체 구조에 맞춰서 username 꺼내세요
+        const name = b.user.username || b.user_id || "—";
+        tr.innerHTML = `
+          <td>${name}</td>
+          <td>${b.date}</td>
+          <td>${b.start_time.slice(0,5)} – ${b.end_time.slice(0,5)}</td>
+        `;
+        tbody.append(tr);
+      });
+    }
+
+    document.getElementById("searchInput").addEventListener("input", e => {
+      const term = e.target.value.trim().toLowerCase();
+      renderTable(
+        term
+          ? allBookings.filter(b => (b.user?.username || "").toLowerCase().includes(term))
+          : allBookings
+      );
+    });
+
+    loadBookings();
+  </script>
+</body>
+</html>
