@@ -9,7 +9,10 @@
     body { font-family: Arial, sans-serif; padding: 20px; }
     .section { margin-top: 40px; }
     .slots { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 10px; }
-    .slot { padding: 10px; border: 1px solid #ccc; border-radius: 4px; text-align: center; cursor: pointer; }
+    .slot {
+      padding: 10px; border: 1px solid #ccc; border-radius: 4px;
+      text-align: center; cursor: pointer;
+    }
     .slot.unavailable { background: #f5f5f5; color: #aaa; cursor: not-allowed; }
     .slot.available:hover { background: #e0f7fa; }
   </style>
@@ -29,12 +32,7 @@
     <input type="date" id="bookingDate" />
     <button id="loadSlots">시간표 불러오기</button>
     <div id="slotsContainer" class="slots"></div>
-  </div>
-
-  <!-- ↓ 내 예약 내역 섹션 -->
-  <div class="section" id="historySection">
-    <h2>📅 내 예약 내역</h2>
-    <ul id="historyList">로딩 중...</ul>
+    <button id="confirmBooking" style="margin-top: 20px">선택한 시간 예약하기</button>
   </div>
 
   <script>
@@ -50,14 +48,14 @@
       location.href = '/index.html';
     }
     const username = payload.username || payload.sub || '사용자';
-    document.getElementById('greeting').textContent =
-      `환영합니다, ${username}님!`;
+    document.getElementById('greeting').textContent = `환영합니다, ${username}님!`;
     document.getElementById('logout').onclick = () => {
       localStorage.removeItem('token');
       location.href = '/index.html';
     };
 
-    // 1) 연습실 목록
+    let selectedSlots = [];
+
     async function loadRooms() {
       try {
         const res = await fetch(`${API_BASE}/rooms/`, {
@@ -79,18 +77,17 @@
       }
     }
 
-    // 2) 슬롯 불러오기
     async function loadSlots() {
+      selectedSlots = []; // 초기화
       const roomId = document.getElementById('roomSelect').value;
-      const date   = document.getElementById('bookingDate').value;
+      const date = document.getElementById('bookingDate').value;
       if (!roomId || !date) {
         return alert('연습실과 날짜를 모두 선택해주세요.');
       }
       try {
-        const res = await fetch(
-          `${API_BASE}/rooms/${roomId}/slots?booking_date=${date}`,
-          { headers: { 'Authorization': `Bearer ${token}` } }
-        );
+        const res = await fetch(`${API_BASE}/rooms/${roomId}/slots?booking_date=${date}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
         if (!res.ok) throw new Error('시간표 조회 실패');
         const slots = await res.json();
         renderSlots(slots, date, roomId);
@@ -100,38 +97,68 @@
       }
     }
 
-    // 3) 슬롯 렌더링
     function renderSlots(slots, date, roomId) {
       const container = document.getElementById('slotsContainer');
       container.innerHTML = '';
       slots.forEach(slot => {
         const div = document.createElement('div');
         div.className = 'slot ' + (slot.available ? 'available' : 'unavailable');
-        const start = new Date(slot.start)
-                        .toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
-        const end   = new Date(slot.end)
-                        .toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+        const start = new Date(slot.start).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+        const end = new Date(slot.end).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
         div.textContent = `${start} - ${end}`;
         if (slot.available) {
-          div.onclick = () => bookSlot(date, roomId, slot);
+          div.onclick = () => toggleSlotSelection(div, slot);
         }
         container.appendChild(div);
       });
     }
 
-    // 4) 예약 생성
-    async function bookSlot(date, roomId, slot) {
+    function toggleSlotSelection(div, slot) {
+      const index = selectedSlots.findIndex(s => s.start === slot.start && s.end === slot.end);
+      if (index >= 0) {
+        selectedSlots.splice(index, 1);
+        div.style.backgroundColor = '';
+      } else {
+        selectedSlots.push(slot);
+        div.style.backgroundColor = '#aef';
+      }
+      updateReserveButtonState();
+    }
+
+    function updateReserveButtonState() {
+      const btn = document.getElementById('confirmBooking');
+      if (selectedSlots.length === 0) {
+        btn.disabled = true;
+        return;
+      }
+      const sorted = selectedSlots.slice().sort((a, b) => new Date(a.start) - new Date(b.start));
+      const start = new Date(sorted[0].start);
+      const end = new Date(sorted[sorted.length - 1].end);
+      const durationMinutes = (end - start) / 1000 / 60;
+      btn.disabled = durationMinutes > 120;
+    }
+
+    document.getElementById('confirmBooking').onclick = async () => {
+      if (selectedSlots.length === 0) return;
+
+      const sorted = selectedSlots.slice().sort((a, b) => new Date(a.start) - new Date(b.start));
+      const start = sorted[0].start.split('T')[1];
+      const end = sorted[sorted.length - 1].end.split('T')[1];
+      const roomId = document.getElementById('roomSelect').value;
+      const date = document.getElementById('bookingDate').value;
+
       const bookingPayload = {
-        room_id:    parseInt(roomId, 10),
-        date:       date,
-        start_time: slot.start.split('T')[1],
-        end_time:   slot.end.split('T')[1]
+        room_id: parseInt(roomId, 10),
+        date,
+        start_time: start,
+        end_time: end
       };
+
       try {
         const res = await fetch(`${API_BASE}/bookings/`, {
           method: 'POST',
           headers: {
-            'Content-Type':  'application/json',
+            'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify(bookingPayload)
@@ -141,43 +168,16 @@
           throw new Error(err.detail || res.statusText);
         }
         alert('예약이 완료되었습니다.');
+        selectedSlots = [];
         loadSlots();
-        loadHistory();
       } catch (e) {
         console.error(e);
         alert('예약 실패: ' + e.message);
       }
-    }
+    };
 
-    // 5) 내 예약 내역 불러오기
-    async function loadHistory() {
-      try {
-        const res = await fetch(`${API_BASE}/bookings/me`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (!res.ok) throw new Error('예약 내역 조회 실패');
-        const items = await res.json();
-        const list = document.getElementById("historyList");
-        if (!items.length) {
-          list.innerHTML = "<li>예약 내역이 없습니다.</li>";
-        } else {
-          list.innerHTML = "";
-          items.forEach(b => {
-            const li = document.createElement("li");
-            li.textContent = `${b.date} ${b.start_time}–${b.end_time} / ${b.room?.name || b.room_id}`;
-            list.appendChild(li);
-          });
-        }
-      } catch (e) {
-        console.error(e);
-        alert('내 예약 내역을 불러오는 중 오류가 발생했습니다.');
-      }
-    }
-
-    // 초기 실행
     loadRooms();
     document.getElementById('loadSlots').onclick = loadSlots;
-    loadHistory();
   </script>
 </body>
 </html>
