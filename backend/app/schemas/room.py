@@ -1,6 +1,8 @@
 # backend/app/schemas/room.py
 from typing import Optional
 from pydantic import BaseModel
+from typing import Union
+
 
 class RoomBase(BaseModel):
     room_name: int               # ex) 1242, 22214, 41901 …
@@ -17,7 +19,9 @@ class RoomUpdate(BaseModel):
     equipment: Optional[str]  = None
 
 class RoomRead(RoomBase):
-    room_id: int
-
-    class Config:
-        orm_mode = True
+    room_id:   int
+    room_name: Union[int, str]
+    
+    model_config = {
+        "from_attributes": True
+    }

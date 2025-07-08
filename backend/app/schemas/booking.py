@@ -3,6 +3,8 @@ from datetime import date, time, datetime
 from typing import Optional, List
 from pydantic import BaseModel
 from app.schemas.user import UserRead
+from app.schemas.room import RoomRead
+
 
 
 class TimeSlot(BaseModel):
@@ -27,11 +29,8 @@ class BookingUpdate(BaseModel):
 
 class BookingRead(BookingBase):
     booking_id:  int
-    # user_id:     int
-    # username:    str
     user:        UserRead        # ← user 객체를 중첩
-
-    room_id:     int
+    room:        RoomRead
     created_at:  datetime
 
     # class Config:
