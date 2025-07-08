@@ -1,7 +1,7 @@
-# backend/app/routers/user.py
-
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status, Response
+from fastapi import APIRouter, Depends, HTTPException, status, Response, Request, Form
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -9,8 +9,12 @@ from app.models.user import User
 from app.schemas.user import UserCreate, UserRead
 from app.routers.auth import get_current_user  # 로그인된 사용자
 
-router = APIRouter(prefix="/users", tags=["users"])
+router = APIRouter(
+    prefix="/users",
+    tags=["users"]
+)
 
+templates = Jinja2Templates(directory="frontend")
 
 # ─── helper: 관리자 검증 의존성 ─────────────────────────────────────────────────────
 def get_current_admin_user(
@@ -22,7 +26,6 @@ def get_current_admin_user(
             detail="관리자만 접근 가능합니다."
         )
     return current_user
-
 
 # ─── 1) 일반 회원가입 ───────────────────────────────────────────────────────────
 @router.post(
@@ -53,17 +56,22 @@ def register_user(
     db.refresh(db_user)
     return db_user
 
-
 # ─── 2) 전체 사용자 조회 (관리자) ────────────────────────────────────────────────
-@router.get("",  response_model=List[UserRead], summary="전체 사용자 조회")
-@router.get("/", response_model=List[UserRead], summary="전체 사용자 조회")
-
+@router.get(
+    "",
+    response_model=List[UserRead],
+    summary="전체 사용자 조회",
+)
+@router.get(
+    "/",
+    response_model=List[UserRead],
+    summary="전체 사용자 조회",
+)
 def list_all_users(
     db: Session = Depends(get_db),
     _: User = Depends(get_current_admin_user),
 ):
     return db.query(User).all()
-
 
 # ─── 3) 승인 대기중 사용자 조회 (관리자) ────────────────────────────────────────
 @router.get(
@@ -76,7 +84,6 @@ def list_pending_users(
     _: User = Depends(get_current_admin_user),
 ):
     return db.query(User).filter(User.role == "pending").all()
-
 
 # ─── 4) 특정 사용자 승인 (관리자) ────────────────────────────────────────────────
 @router.patch(
@@ -102,13 +109,11 @@ def approve_user(
     db.refresh(user)
     return user
 
-
 # ─── 5) 사용자 삭제 (관리자 전용) ────────────────────────────────────────────────
 @router.delete(
     "/{user_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="사용자 삭제 (관리자)",
-    description="관리자 전용: 모든 사용자(pending/user) 삭제",
 )
 def delete_user_by_admin(
     user_id: int,
@@ -121,32 +126,12 @@ def delete_user_by_admin(
     db.delete(user)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
-@router.delete(
-    "/{user_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-    summary="사용자 삭제",
-    description="관리자 전용: 특정 사용자를 삭제"
-)
-
-def delete_user(
-    user_id: int,
-    db: Session = Depends(get_db),
-    _: User = Depends(get_current_admin_user),
-):
-    user = db.query(User).filter(User.user_id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-    db.delete(user)
-    db.commit()
-    return
-
 
 # ─── 6) 내 계정 삭제 (본인용) ───────────────────────────────────────────────────
 @router.delete(
     "/me",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="내 계정 삭제",
-    description="로그인한 본인이 자신의 계정을 삭제",
 )
 def delete_own_account(
     current_user: User = Depends(get_current_user),
@@ -155,3 +140,17 @@ def delete_own_account(
     db.delete(current_user)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+# ─── 7) 관리자 HTML: 사용자 목록 렌더링 ──────────────────────────────────────────
+@router.get(
+    "/admin/html/users",
+    response_class=HTMLResponse,
+    summary="관리자 사용자 목록 페이지",
+)
+async def admin_users_html(
+    request: Request,
+    _: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db),
+):
+    users = db.query(User).all()
+    return templates.TemplateResponse("admin_users.html", {"request": request, "users": users})

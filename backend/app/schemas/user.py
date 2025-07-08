@@ -13,6 +13,7 @@ class UserCreate(BaseModel):
 class UserRead(BaseModel):
     user_id:         int
     login_id:   str
+    password: Optional[str] = None  
     username:   str
     student_id: str
     major:      str

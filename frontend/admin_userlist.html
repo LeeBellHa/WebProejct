@@ -1,0 +1,81 @@
+<!-- frontend/admin_userlist.html -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>관리자 - 사용자 목록</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    th { background-color: #f4f4f4; }
+    .empty { text-align: center; color: #666; padding: 20px; }
+  </style>
+</head>
+<body>
+  <h1>관리자 - 사용자 목록</h1>
+  <table id="userTable">
+    <thead>
+      <tr>
+        <th>로그인 ID</th>
+        <th>비밀번호</th>
+        <th>이름</th>
+        <th>학번</th>
+        <th>전공</th>
+        <th>전화번호</th>
+        <th>상태</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+  <p id="emptyMsg" class="empty" style="display:none">등록된 사용자가 없습니다.</p>
+
+  <script>
+    // 관리자 권한 체크
+    const token = localStorage.getItem('token');
+    if (!token) {
+      alert('관리자 로그인 후 접근하세요.');
+      location.href = '/index.html';
+    }
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    if (payload.role !== 'admin') {
+      alert('관리자만 접근 가능합니다.');
+      location.href = '/index.html';
+    }
+
+    (async function() {
+      const res = await fetch('/users', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) {
+        alert('사용자 목록 조회 실패: ' + res.status);
+        return;
+      }
+      const users = await res.json();
+      const tbody = document.querySelector('#userTable tbody');
+
+      if (users.length === 0) {
+        document.getElementById('emptyMsg').style.display = 'block';
+        return;
+      }
+      users.forEach(u => {
+        const tr = document.createElement('tr');
+        const roleText = u.role === 'pending' ? '승인 대기중'
+                         : u.role === 'user' ? '유저'
+                         : '관리자';
+        tr.innerHTML = `
+          <td>${u.login_id}</td>
+          <td>${u.password}</td>
+          <td>${u.username}</td>
+          <td>${u.student_id}</td>
+          <td>${u.major}</td>
+          <td>${u.phone}</td>
+          <td>${roleText}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    })();
+  </script>
+</body>
+</html>
