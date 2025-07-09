@@ -1,81 +1,190 @@
-<!-- frontend/admin_userlist.html -->
 <!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>관리자 - 사용자 목록</title>
+  <title>관리자 - 사용자 관리</title>
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    body { font-family: Arial, sans-serif; padding: 20px; max-width: 1200px; margin: auto; }
+    h1 { text-align: center; margin-bottom: 1em; }
+    .table-container { max-height: 300px; overflow-y: auto; margin-bottom: 2em; border: 1px solid #ccc; }
+    table { width: 100%; border-collapse: collapse; }
     th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-    th { background-color: #f4f4f4; }
-    .empty { text-align: center; color: #666; padding: 20px; }
+    th { background-color: #f4f4f4; position: sticky; top: 0; }
+    .actions button, .toggle-pw { margin-right: 8px; }
+    #logout { float: right; }
+    .password-cell { display: flex; align-items: center; }
+    .password-cell button { margin-right: 8px; }
   </style>
 </head>
 <body>
-  <h1>관리자 - 사용자 목록</h1>
-  <table id="userTable">
-    <thead>
-      <tr>
-        <th>로그인 ID</th>
-        <th>비밀번호</th>
-        <th>이름</th>
-        <th>학번</th>
-        <th>전공</th>
-        <th>전화번호</th>
-        <th>상태</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
-  <p id="emptyMsg" class="empty" style="display:none">등록된 사용자가 없습니다.</p>
+  <h1>🛠️ 관리자 - 사용자 관리</h1>
+  <button id="logout">로그아웃</button>
+
+  <section>
+    <h2>승인 대기 사용자</h2>
+    <div class="table-container">
+      <table id="pendingTable">
+        <thead>
+          <tr>
+            <th>로그인 ID</th>
+            <th>이름</th>
+            <th>학번</th>
+            <th>전공</th>
+            <th>전화번호</th>
+            <th>액션</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>일반 사용자 목록</h2>
+    <div class="table-container">
+      <table id="userTable">
+        <thead>
+          <tr>
+            <th>로그인 ID</th>
+            <th>비밀번호</th>
+            <th>이름</th>
+            <th>학번</th>
+            <th>전공</th>
+            <th>전화번호</th>
+            <th>액션</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
 
   <script>
-    // 관리자 권한 체크
+    // 관리자 인증 확인
     const token = localStorage.getItem('token');
     if (!token) {
       alert('관리자 로그인 후 접근하세요.');
       location.href = '/index.html';
     }
-    const payload = JSON.parse(atob(token.split('.')[1]));
+    let payload;
+    try {
+      payload = JSON.parse(atob(token.split('.')[1]));
+    } catch {
+      localStorage.removeItem('token');
+      alert('유효하지 않은 토큰입니다.');
+      location.href = '/index.html';
+    }
     if (payload.role !== 'admin') {
       alert('관리자만 접근 가능합니다.');
       location.href = '/index.html';
     }
 
-    (async function() {
-      const res = await fetch('/users', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (!res.ok) {
-        alert('사용자 목록 조회 실패: ' + res.status);
-        return;
-      }
-      const users = await res.json();
-      const tbody = document.querySelector('#userTable tbody');
+    document.getElementById('logout').onclick = () => {
+      localStorage.removeItem('token');
+      location.href = '/index.html';
+    };
 
-      if (users.length === 0) {
-        document.getElementById('emptyMsg').style.display = 'block';
-        return;
-      }
-      users.forEach(u => {
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    };
+
+    async function loadPending() {
+      const res = await fetch('/users/pending', { headers });
+      if (!res.ok) return;
+      const list = await res.json();
+      const tbody = document.querySelector('#pendingTable tbody');
+      tbody.innerHTML = '';
+      if (list.length === 0) {
         const tr = document.createElement('tr');
-        const roleText = u.role === 'pending' ? '승인 대기중'
-                         : u.role === 'user' ? '유저'
-                         : '관리자';
-        tr.innerHTML = `
-          <td>${u.login_id}</td>
-          <td>${u.password}</td>
-          <td>${u.username}</td>
-          <td>${u.student_id}</td>
-          <td>${u.major}</td>
-          <td>${u.phone}</td>
-          <td>${roleText}</td>
-        `;
+        tr.innerHTML = '<td colspan="6" class="empty">승인 대기 중인 사용자가 없습니다.</td>';
         tbody.appendChild(tr);
-      });
-    })();
+      } else {
+        list.forEach(u => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${u.login_id}</td>
+            <td>${u.username}</td>
+            <td>${u.student_id}</td>
+            <td>${u.major}</td>
+            <td>${u.phone}</td>
+            <td class="actions">
+              <button class="approve">승인</button>
+              <button class="delete">삭제</button>
+            </td>
+          `;
+          tr.querySelector('.approve').onclick = async () => {
+            await fetch(`/users/${u.user_id}/approve`, { method: 'PATCH', headers });
+            loadAll();
+          };
+          tr.querySelector('.delete').onclick = async () => {
+            if (!confirm('정말 이 사용자를 삭제하시겠습니까?')) return;
+            await fetch(`/users/${u.user_id}`, { method: 'DELETE', headers });
+            loadAll();
+          };
+          tbody.appendChild(tr);
+        });
+      }
+    }
+
+    async function loadUsers() {
+      const res = await fetch('/users', { headers });
+      if (!res.ok) return;
+      const list = await res.json();
+      const normals = list.filter(u => u.role === 'user');
+      const tbody = document.querySelector('#userTable tbody');
+      tbody.innerHTML = '';
+      if (normals.length === 0) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = '<td colspan="7" class="empty">등록된 일반 사용자가 없습니다.</td>';
+        tbody.appendChild(tr);
+      } else {
+        normals.forEach(u => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${u.login_id}</td>
+            <td class="password-cell">
+              <button class="toggle-pw">보기</button>
+              <span class="plain" style="display:none;">${u.password}</span>
+            </td>
+            <td>${u.username}</td>
+            <td>${u.student_id}</td>
+            <td>${u.major}</td>
+            <td>${u.phone}</td>
+            <td class="actions">
+              <button class="delete">삭제</button>
+            </td>
+          `;
+          // 비밀번호 토글 기능
+          tr.querySelector('.toggle-pw').onclick = () => {
+            const plain = tr.querySelector('.plain');
+            const btn = tr.querySelector('.toggle-pw');
+            if (plain.style.display === 'none') {
+              plain.style.display = '';
+              btn.textContent = '가리기';
+            } else {
+              plain.style.display = 'none';
+              btn.textContent = '보기';
+            }
+          };
+          tr.querySelector('.delete').onclick = async () => {
+            if (!confirm('정말 이 사용자를 삭제하시겠습니까?')) return;
+            await fetch(`/users/${u.user_id}`, { method: 'DELETE', headers });
+            loadAll();
+          };
+          tbody.appendChild(tr);
+        });
+      }
+    }
+
+    function loadAll() {
+      loadPending();
+      loadUsers();
+    }
+
+    // 초기 로드
+    loadAll();
   </script>
 </body>
 </html>
