@@ -1,8 +1,11 @@
+# backend/app/routers/booking.py
+
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi import Query
 from sqlalchemy.orm import Session
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
+from zoneinfo import ZoneInfo  # ← 추가
 
 from app.database import get_db
 from app.models.booking import Booking
@@ -27,24 +30,27 @@ def create_booking(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    datetime_start = datetime.combine(booking_in.date, booking_in.start_time)
-    datetime_end = datetime.combine(booking_in.date, booking_in.end_time)
+    # 0) 서울 시간 기준 now
+    seoul_tz = ZoneInfo("Asia/Seoul")
+    now = datetime.now(seoul_tz)
 
-    # 1. 종료 시간은 반드시 시작 시간보다 이후여야 함
+    # 1) 시작/종료 datetime 결합
+    datetime_start = datetime.combine(booking_in.date, booking_in.start_time)
+    datetime_end   = datetime.combine(booking_in.date, booking_in.end_time)
+
+    # 2) 종료 시간은 반드시 시작 시간보다 이후여야 함
     if datetime_end <= datetime_start:
         raise HTTPException(400, "종료 시간이 시작 시간보다 빨라요.")
 
-    # 2. 예약 시간(분)을 정확하게 계산
+    # 3) 최대 120분까지만 허용
     duration_minutes = (datetime_end - datetime_start).total_seconds() / 60
-
-    # 디버깅: 실제 계산된 시간
-    print("⏱️ 예약 시간:", duration_minutes, "분")
-
-    # 3. 최대 120분까지만 허용
     if duration_minutes > 120:
-        raise HTTPException(400, f"현재 예약 시간은 {duration_minutes}분입니다. 최대 2시간까지만 예약할 수 있습니다.")
+        raise HTTPException(
+            400,
+            f"현재 예약 시간은 {duration_minutes:.0f}분입니다. 최대 2시간까지만 예약할 수 있습니다."
+        )
 
-    # 4. 중복 예약 검사: 사용자가 다른 방에 같은 시간 예약했는지 확인
+    # 4) 동일 사용자가 다른 방에 같은 시간 예약했는지 확인
     overlapping_booking = db.query(Booking).filter(
         Booking.user_id == current_user.user_id,
         Booking.date == booking_in.date,
@@ -54,7 +60,32 @@ def create_booking(
     if overlapping_booking:
         raise HTTPException(400, "이미 같은 시간대에 다른 연습실 예약이 존재합니다.")
 
-    # 5. 연습실 중복 확인
+    # 5) 같은 방에 당일 예약이 있고, 아직 종료 시간이 지나지 않았다면 거부
+    if booking_in.date == now.date():
+        last_same_room = (
+            db.query(Booking)
+              .filter(
+                  Booking.user_id == current_user.user_id,
+                  Booking.room_id == booking_in.room_id,
+                  Booking.date == booking_in.date
+              )
+              .order_by(Booking.end_time.desc())
+              .first()
+        )
+        if last_same_room:
+            # last_end를 datetime으로 만들기
+            last_end_dt = datetime.combine(
+                last_same_room.date,
+                last_same_room.end_time,
+                tzinfo=seoul_tz
+            )
+            if now < last_end_dt:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="현재 예약 중인 같은 연습실은 종료 시각 이후에만 다시 예약할 수 있습니다."
+                )
+
+    # 6) 연습실 중복 확인 (다른 사람이 이미 예약했는지)
     room_conflict = db.query(Booking).filter(
         Booking.room_id == booking_in.room_id,
         Booking.date == booking_in.date,
@@ -64,7 +95,7 @@ def create_booking(
     if room_conflict:
         raise HTTPException(400, "해당 시간에 연습실이 이미 예약되어 있습니다.")
 
-    # 6. 예약 생성
+    # 7) 예약 생성
     booking = Booking(
         user_id=current_user.user_id,
         room_id=booking_in.room_id,
@@ -99,104 +130,3 @@ def create_booking(
         ),
         created_at=booking.created_at
     )
-
-
-@router.get(
-    "/",
-    response_model=List[BookingRead],
-    summary="전체 예약 내역 조회 (관리자 전용)"
-)
-def read_all_bookings(
-    room_id: Optional[int] = Query(None, description="호실 ID로 필터링"),
-
-    db: Session = Depends(get_db),
-    admin_user=Depends(get_current_admin_user)
-):
-    # # 모든 예약을 사용자, 방 정보와 함께 조회
-    # rows = (
-    #     db.query(Booking, User, Room)
-    #       .join(User, Booking.user_id == User.user_id)
-    #       .join(Room, Booking.room_id == Room.room_id)
-    #       .order_by(Booking.date, Booking.start_time)
-    #       .all()
-    # )
-
-    q = (
-        db.query(Booking, User, Room)
-          .join(User, Booking.user_id == User.user_id)
-          .join(Room, Booking.room_id == Room.room_id)
-    )
-    if room_id is not None:
-        q = q.filter(Booking.room_id == room_id)
-    rows = q.order_by(Booking.date, Booking.start_time).all()
-
-    return [
-        BookingRead(
-            booking_id=b.booking_id,
-            date=b.date,
-            start_time=b.start_time,
-            end_time=b.end_time,
-            user=UserRead(
-                user_id=u.user_id,
-                username=u.username,
-                login_id=u.login_id,
-                student_id=u.student_id,
-                major=u.major,
-                phone=u.phone,
-                role=u.role
-            ),
-            room=RoomRead(
-                room_id=r.room_id,
-                room_name=str(r.room_name),
-                state=r.state,
-                equipment=r.equipment
-            ),
-            created_at=b.created_at
-        )
-        for b, u, r in rows
-    ]
-
-@router.get(
-    "/me",
-    response_model=List[BookingRead],
-    summary="내 예약 내역 조회"
-)
-def read_my_bookings(
-    db: Session = Depends(get_db),
-    current_user=Depends(get_current_user)
-):
-    # 현재 로그인한 사용자의 예약만 조회
-    rows = (
-        db.query(Booking, User, Room)
-          .join(User, Booking.user_id == User.user_id)
-          .join(Room, Booking.room_id == Room.room_id)
-          .filter(Booking.user_id == current_user.user_id)
-          .order_by(Booking.date, Booking.start_time)
-          .all()
-    )
-
-    return [
-        BookingRead(
-            booking_id=b.booking_id,
-            date=b.date,
-            start_time=b.start_time,
-            end_time=b.end_time,
-            user=UserRead(
-                user_id=u.user_id,
-                username=u.username,
-                login_id=u.login_id,
-                student_id=u.student_id,
-                major=u.major,
-                phone=u.phone,
-                role=u.role
-            ),
-            room=RoomRead(
-                room_id=r.room_id,
-                room_name=str(r.room_name),
-                state=r.state,
-                equipment=r.equipment
-            ),
-            created_at=b.created_at
-        )
-        for b, u, r in rows
-    ]

@@ -4,6 +4,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from datetime import datetime, date, time, timedelta
+from zoneinfo import ZoneInfo
 
 from app.database import get_db
 from app.models.room import Room
@@ -129,21 +130,35 @@ def get_room_slots(
     if not room:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Room not found")
 
-    start_dt = datetime.combine(booking_date, time(9, 0))
-    end_dt = datetime.combine(booking_date, time(23, 0))
+    # — 서버 시간 (Asia/Seoul) 기준 now
+    seoul_tz = ZoneInfo("Asia/Seoul")
+    now = datetime.now(seoul_tz)
+
+    # — 운영 시간 09:00 ~ 23:00 (tz-aware)
+    start_dt = datetime.combine(booking_date, time(9, 0)).replace(tzinfo=seoul_tz)
+    end_dt   = datetime.combine(booking_date, time(23, 0)).replace(tzinfo=seoul_tz)
 
     slots: List[TimeSlot] = []
     current = start_dt
     while current < end_dt:
         next_dt = current + timedelta(minutes=30)
-        booked = db.query(Booking).filter(
+
+        # 이미 예약된 슬롯인지
+        conflict = db.query(Booking).filter(
             Booking.room_id == room_id,
             Booking.date == booking_date,
-            Booking.start_time < next_dt,
-            Booking.end_time > current
+            Booking.start_time < next_dt.time(),
+            Booking.end_time > current.time()
         ).first() is not None
 
-        slots.append(TimeSlot(start=current, end=next_dt, available=not booked))
+        # “오늘”이고 과거(slot 시작 시각 < now)이면 비활성화
+        past_slot = (booking_date == now.date() and current < now)
+
+        slots.append(TimeSlot(
+            start=current,
+            end=next_dt,
+            available=not conflict and not past_slot
+        ))
         current = next_dt
 
     return slots
