@@ -12,7 +12,8 @@ from app.routers.health import router as health_router
 from app.routers.auth import router as auth_router
 from app.routers.room import router as room_router
 from app.routers.booking import router as booking_router
-from app.routers import auth, user, booking 
+from app.routers.admin_booking import router as admin_booking_router
+from app.routers.notice import router as notice_router
 
 # 1) 테이블 자동생성 (개발/테스트 용)
 Base.metadata.create_all(bind=engine)
@@ -29,17 +30,19 @@ app.add_middleware(
 )
 
 # 4) API 라우터 등록
+#    사용자 및 헬스 체크, 인증
 app.include_router(user_router)                     # /users
 app.include_router(health_router)                   # /health
 app.include_router(auth_router)                     # /auth
-# 연습실/예약 라우터를 /api 아래에 한 번만 붙입니다.
-app.include_router(room_router,    prefix="/api", tags=["rooms"])     # → /api/rooms, /api/rooms/{id}/slots
-app.include_router(booking_router, prefix="/api", tags=["bookings"])  # → /api/bookings
-app.include_router(booking.router)   
+
+#    연습실/예약/관리자 블록을 /api/ 아래로 통일
+app.include_router(room_router,    prefix="/api", tags=["rooms"])            # /api/rooms
+app.include_router(booking_router, prefix="/api", tags=["bookings"])         # /api/bookings
+app.include_router(admin_booking_router, prefix="/api", tags=["admin_bookings"])  # /api/admin/bookings
+app.include_router(notice_router)
 
 
-# 5) 정적 파일 서빙 설정
-#    프로젝트 루트의 frontend 폴더 전체를 루트("/") 경로로 마운트합니다.
+# 5) 프론트엔드 정적 파일 서빙
 frontend_dir = Path(__file__).parent.parent.parent / "frontend"
 app.mount(
     "/",
@@ -47,7 +50,7 @@ app.mount(
     name="frontend"
 )
 
-# 6) 스크립트 직접 실행 시 Uvicorn으로 구동
+# 6) uvicorn 직접 실행 시
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("app.main:app", host="127.0.0.1", port=8000, reload=True)

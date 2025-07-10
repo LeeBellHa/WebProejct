@@ -28,11 +28,14 @@
     <select id="roomSelect">
       <option value="" disabled selected>연습실을 선택하세요</option>
     </select>
+
     <label for="bookingDate">날짜 선택:</label>
     <input type="date" id="bookingDate" />
+
     <button id="loadSlots">시간표 불러오기</button>
+
     <div id="slotsContainer" class="slots"></div>
-    <button id="confirmBooking" style="margin-top: 20px">선택한 시간 예약하기</button>
+    <button id="confirmBooking" style="margin-top: 20px" disabled>선택한 시간 예약하기</button>
   </div>
 
   <script>
@@ -77,10 +80,33 @@
       }
     }
 
+    // 금요일 09시 기준 “예약 가능 주” 범위(min/max) 설정
+    function setDateInputRange() {
+      const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
+      const wd = now.getDay(); // 일=0 … 금=5
+      const daysToFriday = (5 - wd + 7) % 7;
+      const friday = new Date(now);
+      friday.setDate(now.getDate() + daysToFriday);
+      friday.setHours(9,0,0,0);
+
+      let windowStart = new Date(friday);
+      if (now >= friday) {
+        windowStart.setDate(friday.getDate() + 3);  // 다음 주 월
+      } else {
+        windowStart.setDate(friday.getDate() - 4);  // 이번 주 월
+      }
+      const windowEnd = new Date(windowStart);
+      windowEnd.setDate(windowStart.getDate() + 6); // 해당 주 일
+
+      const input = document.getElementById('bookingDate');
+      input.min = windowStart.toISOString().slice(0,10);
+      input.max = windowEnd  .toISOString().slice(0,10);
+    }
+
     async function loadSlots() {
-      selectedSlots = []; // 초기화
+      selectedSlots = [];
       const roomId = document.getElementById('roomSelect').value;
-      const date = document.getElementById('bookingDate').value;
+      const date   = document.getElementById('bookingDate').value;
       if (!roomId || !date) {
         return alert('연습실과 날짜를 모두 선택해주세요.');
       }
@@ -90,33 +116,32 @@
         });
         if (!res.ok) throw new Error('시간표 조회 실패');
         const slots = await res.json();
-        renderSlots(slots, date, roomId);
+        renderSlots(slots);
       } catch (e) {
         console.error(e);
         alert('시간표를 불러오는 중 오류가 발생했습니다.');
       }
     }
 
-    function renderSlots(slots, date, roomId) {
+    function renderSlots(slots) {
       const container = document.getElementById('slotsContainer');
       container.innerHTML = '';
       slots.forEach(slot => {
         const div = document.createElement('div');
         div.className = 'slot ' + (slot.available ? 'available' : 'unavailable');
         const start = new Date(slot.start).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
-        const end = new Date(slot.end).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+        const end   = new Date(slot.end)  .toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
         div.textContent = `${start} - ${end}`;
-        if (slot.available) {
-          div.onclick = () => toggleSlotSelection(div, slot);
-        }
+        if (slot.available) div.onclick = () => toggleSlotSelection(div, slot);
         container.appendChild(div);
       });
+      updateReserveButtonState();
     }
 
     function toggleSlotSelection(div, slot) {
-      const index = selectedSlots.findIndex(s => s.start === slot.start && s.end === slot.end);
-      if (index >= 0) {
-        selectedSlots.splice(index, 1);
+      const idx = selectedSlots.findIndex(s => s.start === slot.start && s.end === slot.end);
+      if (idx >= 0) {
+        selectedSlots.splice(idx, 1);
         div.style.backgroundColor = '';
       } else {
         selectedSlots.push(slot);
@@ -127,31 +152,30 @@
 
     function updateReserveButtonState() {
       const btn = document.getElementById('confirmBooking');
-      if (selectedSlots.length === 0) {
+      if (!selectedSlots.length) {
         btn.disabled = true;
         return;
       }
-      const sorted = selectedSlots.slice().sort((a, b) => new Date(a.start) - new Date(b.start));
-      const start = new Date(sorted[0].start);
-      const end = new Date(sorted[sorted.length - 1].end);
-      const durationMinutes = (end - start) / 1000 / 60;
-      btn.disabled = durationMinutes > 120;
+      const sorted = selectedSlots.slice().sort((a,b)=>new Date(a.start)-new Date(b.start));
+      const start = new Date(sorted[0].start), end = new Date(sorted.at(-1).end);
+      btn.disabled = ((end - start)/60000) > 120;
     }
 
     document.getElementById('confirmBooking').onclick = async () => {
-      if (selectedSlots.length === 0) return;
-
-      const sorted = selectedSlots.slice().sort((a, b) => new Date(a.start) - new Date(b.start));
+      if (!selectedSlots.length) return;
+      const sorted = selectedSlots.slice().sort((a,b)=>new Date(a.start)-new Date(b.start));
       const start = sorted[0].start.split('T')[1];
-      const end = sorted[sorted.length - 1].end.split('T')[1];
-      const roomId = document.getElementById('roomSelect').value;
-      const date = document.getElementById('bookingDate').value;
+      const end   = sorted.at(-1).end.split('T')[1];
+      const roomId = parseInt(document.getElementById('roomSelect').value,10);
+      const date   = document.getElementById('bookingDate').value;
 
-      const bookingPayload = {
-        room_id: parseInt(roomId, 10),
-        date,
+      // ★ 여기를 start_date, end_date 로 보냅니다
+      const payloadBody = {
+        room_id:    roomId,
+        start_date: date,
+        end_date:   date,
         start_time: start,
-        end_time: end
+        end_time:   end
       };
 
       try {
@@ -161,14 +185,13 @@
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
-          body: JSON.stringify(bookingPayload)
+          body: JSON.stringify(payloadBody)
         });
         if (!res.ok) {
           const err = await res.json();
           throw new Error(err.detail || res.statusText);
         }
         alert('예약이 완료되었습니다.');
-        selectedSlots = [];
         loadSlots();
       } catch (e) {
         console.error(e);
@@ -176,8 +199,12 @@
       }
     };
 
-    loadRooms();
-    document.getElementById('loadSlots').onclick = loadSlots;
+    // 초기화
+    document.addEventListener('DOMContentLoaded', () => {
+      loadRooms();
+      setDateInputRange();
+      document.getElementById('loadSlots').onclick = loadSlots;
+    });
   </script>
 </body>
 </html>

@@ -5,6 +5,7 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 import os
 from jose import jwt
+
 from app.database import get_db
 from app.models.user import User
 
@@ -35,20 +36,20 @@ def login(
 
     # 3) JWT 발급 (payload에 user 전체 정보 담기)
     payload = {
-        "sub":         user.login_id,
-        "user_id":     user.user_id,
-        "username":    user.username,
-        "student_id":  user.student_id,
-        "major":       user.major,
-        "phone":       user.phone,
-        "role":        user.role,
+        "sub":        user.login_id,
+        "user_id":    user.user_id,
+        "username":   user.username,
+        "student_id": user.student_id,
+        "major":      user.major,
+        "phone":      user.phone,
+        "role":       user.role,
     }
     token = jwt.encode(payload, SECRET_KEY, algorithm="HS256")
 
     return {
         "access_token": token,
         "token_type":   "bearer",
-        "role":         user.role,  # ← 로그인 응답에 role 필드 추가
+        "role":         user.role,
     }
 
 
@@ -72,3 +73,18 @@ def get_current_user(
             detail="User not found"
         )
     return user
+
+
+def get_current_admin(
+    current_user: User = Depends(get_current_user)
+) -> User:
+    """
+    현재 토큰의 사용자가 admin인지 체크.
+    아니면 403 에러 발생.
+    """
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="관리자 권한이 필요합니다."
+        )
+    return current_user

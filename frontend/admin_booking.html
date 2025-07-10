@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>관리자 블록 관리</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    h1, h2 { color: #333; }
+    form, table { margin-top: 20px; }
+    select, input, textarea { padding: 5px; margin-right: 10px; }
+    button { padding: 5px 10px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+    th { background-color: #f4f4f4; }
+    textarea { width: 100%; }
+  </style>
+</head>
+<body>
+  <h1>연습실 예약 차단 관리 (Admin)</h1>
+
+  <!-- 공지 작성 폼 -->
+  <h2>공지사항 작성</h2>
+  <form id="notice-form">
+    <textarea id="notice-input" rows="3" placeholder="공지 내용을 입력하세요" required></textarea><br/>
+    <button type="submit">공지 올리기</button>
+  </form>
+
+  <!-- 공지 목록 -->
+  <h3>현재 공지사항</h3>
+  <ul id="notice-list"></ul>
+
+  <hr/>
+
+  <!-- 블록 관리 폼 -->
+  <h2>예약 차단 블록 생성</h2>
+  <form id="block-form">
+    <label for="room-select">연습실:</label>
+    <select id="room-select" required>
+      <option value="">-- 선택 --</option>
+    </select>
+
+    <label for="start-date-input">시작 날짜:</label>
+    <input type="date" id="start-date-input" required />
+
+    <label for="end-date-input">종료 날짜:</label>
+    <input type="date" id="end-date-input" required />
+
+    <button type="submit">블록 생성</button>
+  </form>
+
+  <!-- 블록 목록 -->
+  <h2>현재 블록 목록</h2>
+  <table id="block-table">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>연습실</th>
+        <th>기간</th>
+        <th>시작</th>
+        <th>종료</th>
+        <th>액션</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    const token = localStorage.getItem('access_token') || localStorage.getItem('token');
+    if (!token) {
+      alert('관리자 로그인이 필요합니다.');
+      location.href = '/admin.html';
+    }
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + token
+    };
+
+    // ---------- 공지 관련 ---------------
+    async function loadNotices() {
+      try {
+        const res = await fetch('/api/notices', { headers });
+        if (!res.ok) throw new Error('공지 로딩 실패');
+        const list = await res.json();
+        const ul = document.getElementById('notice-list');
+        ul.innerHTML = '';
+        list.forEach(n => {
+          const li = document.createElement('li');
+          li.textContent = `[${n.created_at.split('T')[0]}] ${n.content}`;
+          ul.appendChild(li);
+        });
+      } catch (err) {
+        console.error(err);
+        alert('공지 로딩 중 오류가 발생했습니다.');
+      }
+    }
+
+    async function createNotice(e) {
+      e.preventDefault();
+      const content = document.getElementById('notice-input').value.trim();
+      if (!content) return alert('공지 내용을 입력하세요.');
+      try {
+        const res = await fetch('/api/admin/notices', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ content })
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          return alert('공지 작성 실패: ' + (err.detail || res.statusText));
+        }
+        document.getElementById('notice-input').value = '';
+        await loadNotices();
+        alert('공지 작성 완료');
+      } catch (err) {
+        console.error(err);
+        alert('공지 작성 중 오류가 발생했습니다.');
+      }
+    }
+
+    // ---------- 블록 관련 ---------------
+    const roomsMap = {};
+
+    async function loadRooms() {
+      const res = await fetch('/api/rooms/', { headers });
+      if (!res.ok) throw new Error('연습실 로딩 실패');
+      const rooms = await res.json();
+      const select = document.getElementById('room-select');
+      select.innerHTML = '<option value="">-- 선택 --</option>';
+      rooms.forEach(r => {
+        roomsMap[r.room_id] = r.room_name;
+        const opt = document.createElement('option');
+        opt.value = r.room_id;
+        opt.textContent = r.room_name;
+        select.appendChild(opt);
+      });
+    }
+
+    async function loadBlocks() {
+      const res = await fetch('/api/admin/bookings/', { headers });
+      if (!res.ok) throw new Error('블록 목록 로딩 실패');
+      const blocks = await res.json();
+      const tbody = document.querySelector('#block-table tbody');
+      tbody.innerHTML = '';
+      blocks.forEach(b => {
+        const period = (b.start_date === b.end_date)
+          ? b.start_date
+          : `${b.start_date} ~ ${b.end_date}`;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${b.booking_id}</td>
+          <td>${roomsMap[b.room_id] || b.room_id}</td>
+          <td>${period}</td>
+          <td>${b.start_time}</td>
+          <td>${b.end_time}</td>
+          <td>
+            <button onclick="deleteBlock(${b.booking_id})">삭제</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function createBlock() {
+      const room_id = +document.getElementById('room-select').value;
+      const start_date = document.getElementById('start-date-input').value;
+      const end_date   = document.getElementById('end-date-input').value;
+      if (!room_id || !start_date || !end_date) {
+        return alert('모든 필드를 입력해주세요.');
+      }
+      try {
+        const res = await fetch('/api/admin/bookings/', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            room_id,
+            start_date,
+            end_date,
+            start_time: '00:00:00',
+            end_time:   '23:59:59'
+          })
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          return alert('블록 생성에 실패했습니다: ' + (err.detail || res.statusText));
+        }
+        await loadBlocks();
+        alert('블록 생성 완료');
+      } catch (err) {
+        console.error(err);
+        alert('블록 생성 중 오류가 발생했습니다.');
+      }
+    }
+
+    async function deleteBlock(id) {
+      try {
+        const res = await fetch(`/api/admin/bookings/${id}`, {
+          method: 'DELETE',
+          headers
+        });
+        if (res.status === 204) {
+          await loadBlocks();
+        } else {
+          const err = await res.json();
+          alert('삭제 실패: ' + (err.detail || res.statusText));
+        }
+      } catch (err) {
+        console.error(err);
+        alert('삭제 중 오류가 발생했습니다.');
+      }
+    }
+
+    // ---------- 이벤트 바인딩 ---------------
+    document.addEventListener('DOMContentLoaded', () => {
+      loadNotices();
+      loadRooms();
+      loadBlocks();
+      document.getElementById('notice-form').addEventListener('submit', createNotice);
+      document.getElementById('block-form').addEventListener('submit', e => {
+        e.preventDefault();
+        createBlock();
+      });
+    });
+  </script>
+</body>
+</html>

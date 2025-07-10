@@ -32,12 +32,8 @@ def create_room(
     db: Session = Depends(get_db),
     _: object = Depends(admin_only),
 ):
-    # 중복 확인: 방 이름으로 체크
     if db.query(Room).filter(Room.room_name == room_in.room_name).first():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="이미 존재하는 방 이름입니다."
-        )
+        raise HTTPException(status_code=400, detail="이미 존재하는 방 이름입니다.")
     room = Room(
         room_name=room_in.room_name,
         state=room_in.state,
@@ -73,7 +69,7 @@ def get_room(
 ):
     room = db.get(Room, room_id)
     if not room:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Room not found")
+        raise HTTPException(status_code=404, detail="Room not found")
     return room
 
 # 4) 방 정보 수정 (관리자)
@@ -90,7 +86,7 @@ def update_room(
 ):
     room = db.get(Room, room_id)
     if not room:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Room not found")
+        raise HTTPException(status_code=404, detail="Room not found")
     for field, val in room_in.dict(exclude_unset=True).items():
         setattr(room, field, val)
     db.commit()
@@ -110,15 +106,15 @@ def delete_room(
 ):
     room = db.get(Room, room_id)
     if not room:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Room not found")
+        raise HTTPException(status_code=404, detail="Room not found")
     db.delete(room)
     db.commit()
 
-# 6) 슬롯 조회 (예약 날짜 기준)
+# 6) 슬롯 조회 (주간 윈도우 적용)
 @router.get(
     "/{room_id}/slots",
     response_model=List[TimeSlot],
-    summary="방 시간표 조회",
+    summary="방 시간표 조회 (주간 윈도우 자동 적용)",
 )
 def get_room_slots(
     room_id: int,
@@ -126,38 +122,60 @@ def get_room_slots(
     db: Session = Depends(get_db),
     _: object = Depends(get_current_user),
 ):
+    # 1) 서버 시간 (Asia/Seoul) 기준 now
+    seoul = ZoneInfo("Asia/Seoul")
+    now = datetime.now(seoul)
+
+    # 2) 이번 주 금요일 09:00 계산
+    today_wd = now.weekday()           # Mon=0 ... Fri=4 ... Sun=6
+    days_to_friday = (4 - today_wd) % 7
+    friday_date = (now + timedelta(days=days_to_friday)).date()
+    friday9 = datetime.combine(friday_date, time(9, 0), tzinfo=seoul)
+
+    # 3) 예약 오픈 주(월~일) 결정
+    if now >= friday9:
+        # 금요일 09:00 이후 → 다음 주
+        window_start = friday_date + timedelta(days=3)   # 다음 주 월요일
+    else:
+        # 금요일 09:00 이전 → 이번 주
+        window_start = friday_date - timedelta(days=4)   # 이번 주 월요일
+    window_end = window_start + timedelta(days=6)       # 주 일요일
+
+    # 4) 요청된 날짜가 오픈 윈도우 내인지 확인
+    if not (window_start <= booking_date <= window_end):
+        # 범위 밖일 땐 빈 리스트 반환 (모두 비활성)
+        return []
+
+    # 5) 룸 존재 확인
     room = db.get(Room, room_id)
     if not room:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Room not found")
+        raise HTTPException(status_code=404, detail="Room not found")
 
-    # — 서버 시간 (Asia/Seoul) 기준 now
-    seoul_tz = ZoneInfo("Asia/Seoul")
-    now = datetime.now(seoul_tz)
-
-    # — 운영 시간 09:00 ~ 23:00 (tz-aware)
-    start_dt = datetime.combine(booking_date, time(9, 0)).replace(tzinfo=seoul_tz)
-    end_dt   = datetime.combine(booking_date, time(23, 0)).replace(tzinfo=seoul_tz)
+    # 6) 영업 시간 슬롯 생성 (09:00~23:00, 30분 단위)
+    start_dt = datetime.combine(booking_date, time(9, 0), tzinfo=seoul)
+    end_dt   = datetime.combine(booking_date, time(23, 0), tzinfo=seoul)
 
     slots: List[TimeSlot] = []
     current = start_dt
     while current < end_dt:
         next_dt = current + timedelta(minutes=30)
 
-        # 이미 예약된 슬롯인지
+        # 7) 블록/예약 충돌 체크 (start_date~end_date 범위 & 시간)
         conflict = db.query(Booking).filter(
-            Booking.room_id == room_id,
-            Booking.date == booking_date,
-            Booking.start_time < next_dt.time(),
-            Booking.end_time > current.time()
+            Booking.room_id    == room_id,
+            Booking.start_date <= booking_date,
+            Booking.end_date   >= booking_date,
+            Booking.start_time <  next_dt.time(),
+            Booking.end_time   >  current.time()
         ).first() is not None
 
-        # “오늘”이고 과거(slot 시작 시각 < now)이면 비활성화
-        past_slot = (booking_date == now.date() and current < now)
+        # 8) 오늘 과거 슬롯 비활성
+        past = (booking_date == now.date() and current < now)
 
         slots.append(TimeSlot(
             start=current,
             end=next_dt,
-            available=not conflict and not past_slot
+            available=not conflict and not past
         ))
         current = next_dt
 

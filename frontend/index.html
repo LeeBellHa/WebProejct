@@ -6,66 +6,73 @@
 </head>
 <body>
   <h1>로그인</h1>
+
+  <!-- 최신 공지사항 -->
+  <h2>📰 최신 공지사항</h2>
+  <ul id="public-notice-list"></ul>
+
   <form id="loginForm">
     <label>Login ID: <input name="login_id" required /></label><br/>
     <label>Password: <input type="password" name="password" required /></label><br/>
     <button type="submit">로그인</button>
   </form>
 
-  <!-- 회원가입 바로가기 -->
   <p>
     계정이 없으신가요?
     <button id="goRegister">회원가입</button>
   </p>
 
   <script>
+    // 공지사항 로드
+    async function loadPublicNotices() {
+      try {
+        const res = await fetch('/api/notices');
+        if (!res.ok) return;
+        const ul = document.getElementById('public-notice-list');
+        ul.innerHTML = '';
+        (await res.json()).forEach(n => {
+          const li = document.createElement('li');
+          li.textContent = `[${n.created_at.split('T')[0]}] ${n.content}`;
+          ul.appendChild(li);
+        });
+      } catch (err) {
+        console.error('공지 로딩 실패', err);
+      }
+    }
+
     // 로그인 처리
     const form = document.getElementById("loginForm");
     form.addEventListener("submit", async e => {
       e.preventDefault();
-
-      // 1) form 데이터 준비
       const data = new URLSearchParams({
-        username: form.login_id.value,  // OAuth2PasswordRequestForm expects 'username'
+        username: form.login_id.value,
         password: form.password.value
       });
-
-      // 2) 로그인 API 호출
       const res = await fetch("/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: data
       });
-
-      // 3) 실패 처리
       if (!res.ok) {
         const err = await res.json();
         alert(err.detail || "로그인 실패");
         return;
       }
-
-      // 4) 성공 시 access_token 과 role 추출
       const { access_token, role } = await res.json();
-
-      // 5) pending 상태 체크
       if (role === "pending") {
-        alert("아직 승인 대기 중인 계정입니다. 관리자 승인 후 재접속 해 주세요.");
+        alert("아직 승인 대기 중인 계정입니다.");
         return;
       }
-
-      // 6) 토큰 저장 및 role 분기 리다이렉트
       localStorage.setItem("token", access_token);
-      if (role === "admin") {
-        location.href = "/admin.html";
-      } else {
-        location.href = "/user.html";
-      }
+      if (role === "admin") location.href = "/admin.html";
+      else location.href = "/user.html";
     });
 
-    // 회원가입 버튼 클릭 시 이동
-    document.getElementById("goRegister").addEventListener("click", () => {
-      location.href = "/register_test.html";
-    });
+    document.getElementById("goRegister")
+      .addEventListener("click", () => location.href = "/register_test.html");
+
+    // 초기화
+    document.addEventListener("DOMContentLoaded", loadPublicNotices);
   </script>
 </body>
 </html>

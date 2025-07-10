@@ -1,4 +1,3 @@
-<!-- backend/static/booking_list.html -->
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -39,6 +38,7 @@
   </table>
 
   <script>
+    const API_BASE = "/api";
     const token = localStorage.getItem("token");
     if (!token) {
       alert("로그인이 필요합니다.");
@@ -54,7 +54,8 @@
       location.href = "/index.html";
     }
     if (!["admin","user"].includes(payload.role)) {
-      alert("권한 오류"); location.href = "/index.html";
+      alert("권한 오류");
+      location.href = "/index.html";
     }
 
     const headers = {
@@ -65,29 +66,40 @@
     let allBookings = [];
 
     async function loadBookings() {
-      const url = payload.role === "admin" ? "/bookings/" : "/bookings/me";
+      const url = payload.role === "admin"
+        ? `${API_BASE}/bookings/`
+        : `${API_BASE}/bookings/me`;
+
       const res = await fetch(url, { headers });
       if (!res.ok) {
         console.error("예약 조회 실패:", res.status, await res.text());
+        document.getElementById("bookingBody").innerHTML =
+          `<tr><td colspan="4">예약을 불러오는 중 오류가 발생했습니다.</td></tr>`;
         return;
       }
       allBookings = await res.json();
-      // 예약 시간 순으로 정렬
+
+      // 날짜(start_date) + 시간(start_time) 기준으로 정렬
       allBookings.sort((a, b) => {
-        const da = new Date(`${a.date}T${a.start_time}`);
-        const db = new Date(`${b.date}T${b.start_time}`);
+        const da = new Date(`${a.start_date}T${a.start_time}`);
+        const db = new Date(`${b.start_date}T${b.start_time}`);
         return da - db;
       });
+
       populateRoomSelect(allBookings);
       applyFilters();
     }
 
     function populateRoomSelect(list) {
       const select = document.getElementById("roomSelect");
-      // 고유한 호실명만 뽑아서 옵션 생성
       const rooms = Array.from(new Set(
         list.map(b => (b.room?.room_name) || `호실 ${b.room_id}`)
-      )).sort();
+      )).sort((a, b) => {
+        // 숫자 호실명 정렬을 자연수 순으로
+        const na = parseInt(String(a), 10);
+        const nb = parseInt(String(b), 10);
+        return (isNaN(na) || isNaN(nb)) ? a.localeCompare(b) : na - nb;
+      });
       rooms.forEach(name => {
         const opt = document.createElement("option");
         opt.value = name;
@@ -120,11 +132,11 @@
         const name = b.user?.username || "—";
         const roomName = b.room?.room_name || `호실 ${b.room_id}`;
         const start = b.start_time.slice(0,5);
-        const end = b.end_time.slice(0,5);
+        const end   = b.end_time.slice(0,5);
         const tr = document.createElement("tr");
         tr.innerHTML = `
           <td>${name}</td>
-          <td>${b.date}</td>
+          <td>${b.start_date}</td>
           <td>${start} – ${end}</td>
           <td>${roomName}</td>
         `;
