@@ -1,0 +1,49 @@
+<!-- notice.html -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>공지사항 상세</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; }
+    h1, h2, h3, small { color: #333; }
+    a.back { display: inline-block; margin-bottom: 20px; color: #007BFF; text-decoration: none; }
+    .notice-container { border: 1px solid #ccc; padding: 15px; border-radius: 5px; }
+  </style>
+</head>
+<body>
+  <a class="back" href="index.html">← 돌아가기</a>
+  <div id="notice" class="notice-container">
+    <h2>로딩 중...</h2>
+    <p>잠시만 기다려주세요.</p>
+  </div>
+
+  <script>
+    async function loadNotice() {
+      const params = new URLSearchParams(window.location.search);
+      const id = params.get('id');
+      if (!id) {
+        document.getElementById('notice').innerHTML = '<p>잘못된 요청입니다.</p>';
+        return;
+      }
+      try {
+        const res = await fetch(`/api/notices/${id}`);
+        if (!res.ok) throw new Error('상세 로딩 실패');
+        const n = await res.json();
+        document.getElementById('notice').innerHTML = `
+          <h2>${n.title}</h2>
+          <small>작성일: ${n.created_at.split('T')[0]}</small>
+          <hr/>
+          <p>${n.content.replace(/\n/g,'<br/>')}</p>
+        `;
+      } catch (err) {
+        console.error(err);
+        document.getElementById('notice').innerHTML = '<p>공지 불러오기에 실패했습니다.</p>';
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', loadNotice);
+  </script>
+</body>
+</html>
