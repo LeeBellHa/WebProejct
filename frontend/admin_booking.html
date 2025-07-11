@@ -1,4 +1,3 @@
-<!-- admin_booking.html -->
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -21,17 +20,15 @@
 <body>
   <h1>관리자 공지 및 예약 차단 관리</h1>
 
-  <!-- ================= 공지 작성/수정 폼 ================= -->
-  <h2>공지사항 작성 / 수정</h2>
+  <!-- ================= 공지 작성/수정/삭제 폼 ================= -->
+  <h2>공지사항 작성 / 수정 / 삭제</h2>
   <form id="notice-form">
-    <!-- 수정 중인 공지의 ID 보관 -->
     <input type="hidden" id="notice-id" />
-
     <input id="notice-title-input" type="text" placeholder="제목을 입력하세요" required /><br/><br/>
     <textarea id="notice-input" rows="3" placeholder="내용을 입력하세요" required></textarea><br/>
-
     <button type="submit" id="notice-submit-btn">공지 올리기</button>
     <button type="button" id="cancel-edit-btn" class="hidden">취소</button>
+    <button type="button" id="delete-notice-btn" class="hidden">삭제</button>
   </form>
 
   <!-- 공지 목록 -->
@@ -39,21 +36,8 @@
   <ul id="notice-list"></ul>
 
   <hr/>
-  <!-- 공지 상세 모달
-  <div id="notice-modal" class="hidden">
-    <div class="modal-backdrop"></div>
-    <div class="modal-content">
-      <h2 id="modal-title"></h2>
-      <p id="modal-content"></p>
-      <button id="edit-btn">수정</button>
-      <button id="delete-btn">삭제</button>
-      <button onclick="document.getElementById('notice-modal').classList.add('hidden')">닫기</button>
-    </div>
-  </div>
 
-  <hr/> -->
-
-  <!-- 블록 관리 폼 -->
+  <!-- ================= 예약 차단 블록 관리 ================= -->
   <h2>예약 차단 블록 생성</h2>
   <form id="block-form">
     <label for="room-select">연습실:</label>
@@ -70,7 +54,6 @@
     <button type="submit">블록 생성</button>
   </form>
 
-  <!-- 블록 목록 -->
   <h2>현재 블록 목록</h2>
   <table id="block-table">
     <thead>
@@ -81,7 +64,7 @@
     <tbody></tbody>
   </table>
 
-   <script>
+  <script>
     const token = localStorage.getItem('access_token') || localStorage.getItem('token');
     if (!token) {
       alert('관리자 로그인이 필요합니다.');
@@ -92,16 +75,16 @@
       'Authorization': 'Bearer ' + token
     };
 
-    // 폼 요소들
-    const noticeForm       = document.getElementById('notice-form');
-    const titleInput       = document.getElementById('notice-title-input');
-    const contentInput     = document.getElementById('notice-input');
-    const submitBtn        = document.getElementById('notice-submit-btn');
-    const cancelEditBtn    = document.getElementById('cancel-edit-btn');
-    const noticeIdInput    = document.getElementById('notice-id');
+    // === 공지사항 CRUD ===
+    const noticeForm      = document.getElementById('notice-form');
+    const titleInput      = document.getElementById('notice-title-input');
+    const contentInput    = document.getElementById('notice-input');
+    const submitBtn       = document.getElementById('notice-submit-btn');
+    const cancelEditBtn   = document.getElementById('cancel-edit-btn');
+    const deleteNoticeBtn = document.getElementById('delete-notice-btn');
+    const noticeIdInput   = document.getElementById('notice-id');
     let isEditing = false;
 
-    // ─── 공지 목록 로드 ───────────────────────
     async function loadNotices() {
       const res = await fetch('/api/notices', { headers });
       if (!res.ok) return alert('공지 로딩 실패');
@@ -116,38 +99,38 @@
       });
     }
 
-    // ─── 편집 모드 시작 ───────────────────────
     function startEditNotice(n) {
       isEditing = true;
       noticeIdInput.value = n.notice_id;
       titleInput.value    = n.title;
       contentInput.value  = n.content;
-      submitBtn.textContent = '수정 완료';
+      submitBtn.textContent      = '수정 완료';
       cancelEditBtn.classList.remove('hidden');
+      deleteNoticeBtn.classList.remove('hidden');
       titleInput.focus();
     }
 
-    // ─── 편집 취소 ───────────────────────────
-    cancelEditBtn.addEventListener('click', () => {
+    function resetForm() {
       isEditing = false;
       noticeForm.reset();
       noticeIdInput.value = '';
-      submitBtn.textContent  = '공지 올리기';
+      submitBtn.textContent      = '공지 올리기';
       cancelEditBtn.classList.add('hidden');
-    });
+      deleteNoticeBtn.classList.add('hidden');
+    }
 
-    // ─── 작성/수정 핸들러 ────────────────────
+    cancelEditBtn.addEventListener('click', resetForm);
+
     noticeForm.addEventListener('submit', async e => {
       e.preventDefault();
       const title   = titleInput.value.trim();
       const content = contentInput.value.trim();
       if (!title || !content) return alert('제목과 내용을 모두 입력하세요.');
 
-      let url     = '/api/admin/notices';
-      let method  = 'POST';
+      let url    = '/api/admin/notices';
+      let method = 'POST';
       if (isEditing) {
-        const id = noticeIdInput.value;
-        url    = `/api/admin/notices/${id}`;
+        url    = `/api/admin/notices/${noticeIdInput.value}`;
         method = 'PATCH';
       }
 
@@ -156,16 +139,9 @@
           method, headers,
           body: JSON.stringify({ title, content })
         });
-        if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.detail || res.statusText);
-        }
-        // 성공 시
-        isEditing = false;
-        noticeForm.reset();
-        noticeIdInput.value = '';
-        submitBtn.textContent  = '공지 올리기';
-        cancelEditBtn.classList.add('hidden');
+        if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
+
+        resetForm();
         await loadNotices();
         alert(isEditing ? '공지 수정 완료' : '공지 작성 완료');
       } catch (err) {
@@ -174,16 +150,112 @@
       }
     });
 
-    // ─── 이벤트 바인딩 ───────────────────────
+    deleteNoticeBtn.addEventListener('click', async () => {
+      if (!confirm('정말 이 공지를 삭제하시겠습니까?')) return;
+      try {
+        const res = await fetch(
+          `/api/admin/notices/${noticeIdInput.value}`,
+          { method: 'DELETE', headers }
+        );
+        if (res.status !== 204) throw new Error((await res.json()).detail || res.statusText);
+
+        resetForm();
+        await loadNotices();
+        alert('공지 삭제 완료');
+      } catch (err) {
+        console.error(err);
+        alert('삭제 실패: ' + err.message);
+      }
+    });
+
+    // === 예약 차단 블록 관리 ===
+    const roomsMap = {};
+
+    async function loadRooms() {
+      const res = await fetch('/api/rooms/', { headers });
+      if (!res.ok) throw new Error('연습실 로딩 실패');
+      const rooms = await res.json();
+      const select = document.getElementById('room-select');
+      select.innerHTML = '<option value="">-- 선택 --</option>';
+      rooms.forEach(r => {
+        roomsMap[r.room_id] = r.room_name;
+        const opt = document.createElement('option');
+        opt.value = r.room_id;
+        opt.textContent = r.room_name;
+        select.appendChild(opt);
+      });
+    }
+
+    async function loadBlocks() {
+      const res = await fetch('/api/admin/bookings/', { headers });
+      if (!res.ok) throw new Error('블록 목록 로딩 실패');
+      const blocks = await res.json();
+      const tbody = document.querySelector('#block-table tbody');
+      tbody.innerHTML = '';
+      blocks.forEach(b => {
+        const period = b.start_date === b.end_date
+          ? b.start_date
+          : `${b.start_date} ~ ${b.end_date}`;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${b.booking_id}</td>
+          <td>${roomsMap[b.room_id] || b.room_id}</td>
+          <td>${period}</td>
+          <td>${b.start_time}</td>
+          <td>${b.end_time}</td>
+          <td><button onclick="deleteBlock(${b.booking_id})">삭제</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function createBlock(e) {
+      e.preventDefault();
+      const room_id    = +document.getElementById('room-select').value;
+      const start_date = document.getElementById('start-date-input').value;
+      const end_date   = document.getElementById('end-date-input').value;
+      if (!room_id || !start_date || !end_date) {
+        return alert('모든 필드를 입력해주세요.');
+      }
+      try {
+        const res = await fetch('/api/admin/bookings/', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            room_id, start_date, end_date,
+            start_time: '00:00:00',
+            end_time:   '23:59:59'
+          })
+        });
+        if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
+
+        await loadBlocks();
+        alert('블록 생성 완료');
+      } catch (err) {
+        console.error(err);
+        alert('블록 생성 실패: ' + err.message);
+      }
+    }
+
+    async function deleteBlock(id) {
+      try {
+        const res = await fetch(`/api/admin/bookings/${id}`, {
+          method: 'DELETE', headers
+        });
+        if (res.status !== 204) throw new Error((await res.json()).detail || res.statusText);
+        await loadBlocks();
+      } catch (err) {
+        console.error(err);
+        alert('삭제 실패: ' + err.message);
+      }
+    }
+
+    // === 초기화 ===
     document.addEventListener('DOMContentLoaded', () => {
       loadNotices();
       loadRooms();
       loadBlocks();
-      document.getElementById('notice-form').addEventListener('submit', createNotice);
-      document.getElementById('block-form').addEventListener('submit', e => {
-        e.preventDefault();
-        createBlock();
-      });
+      document.getElementById('block-form').addEventListener('submit', createBlock);
     });
   </script>
 </body>
