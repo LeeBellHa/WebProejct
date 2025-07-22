@@ -1,89 +1,59 @@
-<!-- index.html -->
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>로그인</title>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    h1, h2 { color: #333; }
-    ul { list-style: none; padding: 0; }
-    li { margin-bottom: 5px; }
-    a.notice-link { color: #007BFF; text-decoration: none; }
-  </style>
+  <title>로그인 | 뉴뮤직 예약 시스템</title>
+  <!-- 공통 스타일 -->
+  <link rel="stylesheet" href="css/common.css">
 </head>
 <body>
-  <h1>로그인</h1>
 
-  <!-- 최신 공지사항 -->
-  <h2>📰 최신 공지사항</h2>
-  <ul id="public-notice-list"></ul>
+  <!-- 헤더 -->
+  <header>
+    <img src="images/dku-logo.png" alt="DKU Logo">
+    <div class="title">
+      <h1>단국대학교 뉴뮤직학부</h1>
+      <p>Dankook University New Music</p>
+    </div>
+  </header>
 
-  <form id="loginForm">
-    <label>Login ID: <input name="login_id" required /></label><br/>
-    <label>Password: <input type="password" name="password" required /></label><br/>
-    <button type="submit">로그인</button>
-  </form>
+  <!-- 중앙 카드 -->
+  <div class="main-container">
+    <div class="card">
+      <!-- 로그인 박스 -->
+      <div class="login-box">
+        <h2>Login</h2>
+        <p>
+          단국대학교 뉴뮤직학부 실기실 예약 시스템을 이용하시려면 로그인이 필요합니다.<br>
+          학번(########)과 비밀번호를 입력해 주세요.
+        </p>
+        <form id="loginForm">
+          <label>
+            학번 입력
+            <input name="login_id" required>
+          </label>
+          <label>
+            비밀번호 입력
+            <input type="password" name="password" required>
+          </label>
+          <button type="submit">로그인</button>
+        </form>
+        <p class="register">
+          계정이 없으신가요?
+          <button id="goRegister">회원가입</button>
+        </p>
+      </div>
 
-  <p>
-    계정이 없으신가요?
-    <button id="goRegister">회원가입</button>
-  </p>
+      <!-- 공지 박스 -->
+      <div class="notice-box">
+        <h2>📰 New Music NEWS</h2>
+        <ul id="public-notice-list"></ul>
+      </div>
+    </div>
+  </div>
 
-  <script>
-    // 1) 공지 목록만 제목으로 렌더 (링크로만 이동)
-    async function loadPublicNotices() {
-      try {
-        const res = await fetch('/api/notices');
-        if (!res.ok) return;
-        const list = await res.json();
-        const ul = document.getElementById('public-notice-list');
-        ul.innerHTML = '';
-        list.forEach(n => {
-          const li = document.createElement('li');
-          li.innerHTML = `
-            [${n.created_at.split('T')[0]}]
-            <a class="notice-link" href="notice.html?id=${n.notice_id}">
-              ${n.title}
-            </a>
-          `;
-          ul.appendChild(li);
-        });
-      } catch (err) {
-        console.error('공지 로딩 실패', err);
-      }
-    }
-
-    // 로그인 처리 (변경 없음)
-    const form = document.getElementById("loginForm");
-    form.addEventListener("submit", async e => {
-      e.preventDefault();
-      const data = new URLSearchParams({
-        username: form.login_id.value,
-        password: form.password.value
-      });
-      const res = await fetch("/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: data
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        return alert(err.detail || "로그인 실패");
-      }
-      const { access_token, role } = await res.json();
-      if (role === "pending") {
-        return alert("아직 승인 대기 중인 계정입니다.");
-      }
-      localStorage.setItem("token", access_token);
-      location.href = role === "admin" ? "/admin.html" : "/user.html";
-    });
-
-    document.getElementById("goRegister")
-      .addEventListener("click", () => location.href = "/register_test.html");
-
-    document.addEventListener("DOMContentLoaded", loadPublicNotices);
-  </script>
+  <!-- 유저 페이지 스크립트 -->
+  <script src="js/user.js" defer></script>
 </body>
 </html>

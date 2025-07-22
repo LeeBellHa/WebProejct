@@ -1,94 +1,81 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8" />
-  <title>회원가입 테스트</title>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>회원가입 | 뉴뮤직 예약 시스템</title>
+  <!-- 공통 스타일 -->
+  <link rel="stylesheet" href="css/common.css">
 </head>
 <body>
-  <h1>회원가입 테스트</h1>
-  <form id="regForm">
-    <label>
-      Login ID:
-      <input name="login_id" required minlength="2" maxlength="50" />
-    </label>
-    <br/>
 
-    <label>
-      Password:
-      <input type="password" name="password" required minlength="8" />
-    </label>
-    <br/>
+  <!-- 헤더 (로그인과 동일) -->
+  <header>
+    <img src="images/dku-logo.png" alt="DKU Logo">
+    <div class="title">
+      <h1>단국대학교 뉴뮤직학부</h1>
+      <p>Dankook University New Music</p>
+    </div>
+  </header>
 
-    <label>
-      Username:
-      <input name="username" required minlength="1" maxlength="100" />
-    </label>
-    <br/>
+  <!-- 중앙 카드 (회원가입 전용) -->
+  <div class="main-container">
+    <div class="card reg-card">
+      <div class="reg-box">
+        <h2>회원가입</h2>
 
-    <label>
-      Student ID:
-      <input name="student_id" required minlength="5" maxlength="20" />
-    </label>
-    <br/>
+        <form id="regForm">
+          <label>
+            Login ID
+            <input name="login_id" required minlength="2" maxlength="50" />
+          </label>
 
-    <label>
-      Major:
-      <select name="major" required>
-        <option value="" disabled selected>전공을 선택하세요</option>
-        <option value="뮤직테크놀러지&컴퓨터음악작곡">
-          뮤직테크놀러지&컴퓨터음악작곡
-        </option>
-        <option value="싱어송라이터전공">
-          싱어송라이터전공
-        </option>
-        <option value="재즈퍼포먼스전공">
-          재즈퍼포먼스전공
-        </option>
-      </select>
-    </label>
-    <br/>
+          <label>
+            Password
+            <input type="password" name="password" required minlength="8" />
+          </label>
 
-    <label>
-      Phone:
-      <input
-        type="tel"
-        name="phone"
-        pattern="^010-\d{4}-\d{4}$"
-        placeholder="010-1234-5678"
-      />
-    </label>
-    <br/>
+          <label>
+            Username
+            <input name="username" required minlength="1" maxlength="100" />
+          </label>
 
-    <button type="submit">가입하기</button>
-  </form>
+          <label>
+            Student ID
+            <input name="student_id" required minlength="5" maxlength="20" />
+          </label>
 
-  <pre id="result"></pre>
+          <label>
+            Major
+            <select name="major" required>
+              <option value="" disabled selected>전공을 선택하세요</option>
+              <option value="뮤직테크놀러지&컴퓨터음악작곡">
+                뮤직테크놀러지&컴퓨터음악작곡
+              </option>
+              <option value="싱어송라이터전공">싱어송라이터전공</option>
+              <option value="재즈퍼포먼스전공">재즈퍼포먼스전공</option>
+            </select>
+          </label>
 
-  <script>
-    const form = document.getElementById("regForm");
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const data = {
-        login_id:   form.login_id.value,
-        password:   form.password.value,
-        username:   form.username.value,
-        student_id: form.student_id.value,
-        major:      form.major.value,
-        phone:      form.phone.value || null
-      };
-      try {
-        const res = await fetch("/users/register", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(data),
-        });
-        const json = await res.json();
-        document.getElementById("result").textContent =
-          JSON.stringify(json, null, 2);
-      } catch (err) {
-        document.getElementById("result").textContent = err;
-      }
-    });
-  </script>
+          <label>
+            Phone
+            <input
+              type="tel"
+              name="phone"
+              pattern="^010-\d{4}-\d{4}$"
+              placeholder="010-1234-5678"
+            />
+          </label>
+
+          <button type="submit">가입하기</button>
+        </form>
+
+        <pre id="result"></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- 회원가입 로직 분리 -->
+  <script src="js/register.js" defer></script>
 </body>
 </html>

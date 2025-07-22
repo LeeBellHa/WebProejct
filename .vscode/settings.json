@@ -14,5 +14,6 @@
             "username": "nm_admin",
             "password": "NMnm0629###"
         }
-    ]
+    ],
+    "liveServer.settings.port": 5501
 }
