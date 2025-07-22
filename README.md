@@ -78,3 +78,7 @@
 ## 📁 프로젝트 GitHub 저장소
 
 * [NM 프로젝트 GitHub 저장소](https://github.com/LeeBellHa/WebProejct)
+
+
+cd backend
+./.venv/bin/python -m uvicorn app.main:app --reload 
