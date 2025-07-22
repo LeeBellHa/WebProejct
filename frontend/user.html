@@ -1,210 +1,72 @@
-<!-- backend/static/user.html -->
 <!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>User Dashboard</title>
-  <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
-    .section { margin-top: 40px; }
-    .slots { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 10px; }
-    .slot {
-      padding: 10px; border: 1px solid #ccc; border-radius: 4px;
-      text-align: center; cursor: pointer;
-    }
-    .slot.unavailable { background: #f5f5f5; color: #aaa; cursor: not-allowed; }
-    .slot.available:hover { background: #e0f7fa; }
-  </style>
+  <!-- 공통 스타일 -->
+  <link rel="stylesheet" href="css/common.css">
+  <!-- 헤더/사이드바 레이아웃 -->
+  <link rel="stylesheet" href="css/admin.css">
+  <!-- 유저 전용 스타일 -->
+  <link rel="stylesheet" href="css/user.css">
 </head>
 <body>
-  <h1>👤 User Dashboard</h1>
-  <p id="greeting">환영합니다, 사용자님!</p>
-  <button id="logout">로그아웃</button>
 
-  <div class="section" id="bookingSection">
-    <h2>연습실 예약</h2>
-    <label for="roomSelect">연습실 선택:</label>
-    <select id="roomSelect">
-      <option value="" disabled selected>연습실을 선택하세요</option>
-    </select>
+  <!-- 헤더 -->
+  <header>
+    <button id="menuToggle" class="hamburger" aria-label="사이드바 토글">
+      <span></span><span></span><span></span>
+    </button>
+    <img src="images/dku-logo.png" alt="DKU Logo">
+    <div class="title">
+      <h1>단국대학교 뉴뮤직학부</h1>
+      <p>Dankook University New Music</p>
+    </div>
+  </header>
 
-    <label for="bookingDate">날짜 선택:</label>
-    <input type="date" id="bookingDate" />
+  <div class="wrapper">
+    <!-- 사이드바 -->
+    <nav id="sidebarNav" class="sidebar">
+      <ul>
+        <li><a href="user.html" class="active">연습실 예약</a></li>
+        <li><a href="user_booking_list.html">내 예약 내역</a></li>
+      </ul>
+    </nav>
 
-    <button id="loadSlots">시간표 불러오기</button>
+    <!-- 메인 콘텐츠 -->
+    <main class="content">
+      <button id="logout" class="logout-btn">로그아웃</button>
+      <h2>👤 User Dashboard</h2>
+      <p id="greeting">환영합니다, 사용자님!</p>
 
-    <div id="slotsContainer" class="slots"></div>
-    <button id="confirmBooking" style="margin-top: 20px" disabled>선택한 시간 예약하기</button>
+      <section id="bookingSection" class="section">
+        <h3>연습실 예약</h3>
+        <label for="roomSelect">연습실 선택:</label>
+        <select id="roomSelect">
+          <option value="" disabled selected>연습실을 선택하세요</option>
+        </select>
+
+        <label for="bookingDate">날짜 선택:</label>
+        <input type="date" id="bookingDate" />
+
+        <button id="loadSlots" class="btn">시간표 불러오기</button>
+      </section>
+    </main>
   </div>
 
-  <script>
-    const API_BASE = '/api';
-    const token = localStorage.getItem('token');
-    if (!token) {
-      alert('로그인이 필요합니다.');
-      location.href = '/index.html';
-    }
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    if (payload.role !== 'user') {
-      alert('접근 권한이 없습니다.');
-      location.href = '/index.html';
-    }
-    const username = payload.username || payload.sub || '사용자';
-    document.getElementById('greeting').textContent = `환영합니다, ${username}님!`;
-    document.getElementById('logout').onclick = () => {
-      localStorage.removeItem('token');
-      location.href = '/index.html';
-    };
+  <!-- 슬롯 선택 모달 -->
+  <div id="slotModal" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-dialog">
+      <button id="closeModal" class="modal-close">&times;</button>
+      <h3>시간표 선택</h3>
+      <div id="slotsContainer" class="slots"></div>
+      <button id="confirmBooking" class="btn" disabled>예약하기</button>
+    </div>
+  </div>
 
-    let selectedSlots = [];
-
-    async function loadRooms() {
-      try {
-        const res = await fetch(`${API_BASE}/rooms/`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (!res.ok) throw new Error('방 목록 조회 실패');
-        const rooms = await res.json();
-        const select = document.getElementById('roomSelect');
-        select.innerHTML = '<option value="" disabled selected>연습실을 선택하세요</option>';
-        rooms.forEach(room => {
-          const opt = document.createElement('option');
-          opt.value = room.room_id;
-          opt.textContent = room.room_name;
-          select.appendChild(opt);
-        });
-      } catch (e) {
-        console.error(e);
-        alert('연습실 목록을 불러오는 중 오류가 발생했습니다.');
-      }
-    }
-
-    // 금요일 09시 기준 “예약 가능 주” 범위(min/max) 설정
-    function setDateInputRange() {
-      const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
-      const wd = now.getDay(); // 일=0 … 금=5
-      const daysToFriday = (5 - wd + 7) % 7;
-      const friday = new Date(now);
-      friday.setDate(now.getDate() + daysToFriday);
-      friday.setHours(9,0,0,0);
-
-      let windowStart = new Date(friday);
-      if (now >= friday) {
-        windowStart.setDate(friday.getDate() + 3);  // 다음 주 월
-      } else {
-        windowStart.setDate(friday.getDate() - 4);  // 이번 주 월
-      }
-      const windowEnd = new Date(windowStart);
-      windowEnd.setDate(windowStart.getDate() + 6); // 해당 주 일
-
-      const input = document.getElementById('bookingDate');
-      input.min = windowStart.toISOString().slice(0,10);
-      input.max = windowEnd  .toISOString().slice(0,10);
-    }
-
-    async function loadSlots() {
-      selectedSlots = [];
-      const roomId = document.getElementById('roomSelect').value;
-      const date   = document.getElementById('bookingDate').value;
-      if (!roomId || !date) {
-        return alert('연습실과 날짜를 모두 선택해주세요.');
-      }
-      try {
-        const res = await fetch(`${API_BASE}/rooms/${roomId}/slots?booking_date=${date}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (!res.ok) throw new Error('시간표 조회 실패');
-        const slots = await res.json();
-        renderSlots(slots);
-      } catch (e) {
-        console.error(e);
-        alert('시간표를 불러오는 중 오류가 발생했습니다.');
-      }
-    }
-
-    function renderSlots(slots) {
-      const container = document.getElementById('slotsContainer');
-      container.innerHTML = '';
-      slots.forEach(slot => {
-        const div = document.createElement('div');
-        div.className = 'slot ' + (slot.available ? 'available' : 'unavailable');
-        const start = new Date(slot.start).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
-        const end   = new Date(slot.end)  .toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
-        div.textContent = `${start} - ${end}`;
-        if (slot.available) div.onclick = () => toggleSlotSelection(div, slot);
-        container.appendChild(div);
-      });
-      updateReserveButtonState();
-    }
-
-    function toggleSlotSelection(div, slot) {
-      const idx = selectedSlots.findIndex(s => s.start === slot.start && s.end === slot.end);
-      if (idx >= 0) {
-        selectedSlots.splice(idx, 1);
-        div.style.backgroundColor = '';
-      } else {
-        selectedSlots.push(slot);
-        div.style.backgroundColor = '#aef';
-      }
-      updateReserveButtonState();
-    }
-
-    function updateReserveButtonState() {
-      const btn = document.getElementById('confirmBooking');
-      if (!selectedSlots.length) {
-        btn.disabled = true;
-        return;
-      }
-      const sorted = selectedSlots.slice().sort((a,b)=>new Date(a.start)-new Date(b.start));
-      const start = new Date(sorted[0].start), end = new Date(sorted.at(-1).end);
-      btn.disabled = ((end - start)/60000) > 120;
-    }
-
-    document.getElementById('confirmBooking').onclick = async () => {
-      if (!selectedSlots.length) return;
-      const sorted = selectedSlots.slice().sort((a,b)=>new Date(a.start)-new Date(b.start));
-      const start = sorted[0].start.split('T')[1];
-      const end   = sorted.at(-1).end.split('T')[1];
-      const roomId = parseInt(document.getElementById('roomSelect').value,10);
-      const date   = document.getElementById('bookingDate').value;
-
-      // ★ 여기를 start_date, end_date 로 보냅니다
-      const payloadBody = {
-        room_id:    roomId,
-        start_date: date,
-        end_date:   date,
-        start_time: start,
-        end_time:   end
-      };
-
-      try {
-        const res = await fetch(`${API_BASE}/bookings/`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify(payloadBody)
-        });
-        if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.detail || res.statusText);
-        }
-        alert('예약이 완료되었습니다.');
-        loadSlots();
-      } catch (e) {
-        console.error(e);
-        alert('예약 실패: ' + e.message);
-      }
-    };
-
-    // 초기화
-    document.addEventListener('DOMContentLoaded', () => {
-      loadRooms();
-      setDateInputRange();
-      document.getElementById('loadSlots').onclick = loadSlots;
-    });
-  </script>
+  <!-- 스크립트 -->
+  <script src="js/user.js" defer></script>
 </body>
 </html>

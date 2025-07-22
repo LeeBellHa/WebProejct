@@ -3,260 +3,110 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>관리자 공지 및 예약 차단 관리</title>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    h1, h2, h3 { color: #333; }
-    form, table, ul { margin-top: 20px; }
-    select, input, textarea, button { padding: 5px; margin-right: 10px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px;}
-    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
-    th { background-color: #f4f4f4; }
-    textarea, input[type="text"] { width: 100%; box-sizing: border-box; }
-    .hidden { display: none; }
-    #notice-list li { margin-bottom: 5px; cursor: pointer; color: #007BFF; }
-  </style>
+  <title>관리자 – 공지 및 예약 차단 관리</title>
+  <!-- 공통 스타일 -->
+  <link rel="stylesheet" href="css/common.css">
+  <!-- 관리자 전용 스타일 -->
+  <link rel="stylesheet" href="css/admin.css">
 </head>
 <body>
-  <h1>관리자 공지 및 예약 차단 관리</h1>
 
-  <!-- ================= 공지 작성/수정/삭제 폼 ================= -->
-  <h2>공지사항 작성 / 수정 / 삭제</h2>
-  <form id="notice-form">
-    <input type="hidden" id="notice-id" />
-    <input id="notice-title-input" type="text" placeholder="제목을 입력하세요" required /><br/><br/>
-    <textarea id="notice-input" rows="3" placeholder="내용을 입력하세요" required></textarea><br/>
-    <button type="submit" id="notice-submit-btn">공지 올리기</button>
-    <button type="button" id="cancel-edit-btn" class="hidden">취소</button>
-    <button type="button" id="delete-notice-btn" class="hidden">삭제</button>
-  </form>
+  <!-- 헤더 -->
+  <header>
+    <button id="menuToggle" class="hamburger" aria-label="사이드바 토글">
+      <span></span><span></span><span></span>
+    </button>
+    <img src="images/dku-logo.png" alt="DKU Logo">
+    <div class="title">
+      <h1>단국대학교 뉴뮤직학부</h1>
+      <p>Dankook University New Music</p>
+    </div>
+  </header>
 
-  <!-- 공지 목록 -->
-  <h3>현재 공지사항</h3>
-  <ul id="notice-list"></ul>
+  <div class="wrapper">
+    <!-- 사이드바 -->
+    <nav id="sidebarNav" class="sidebar">
+      <ul>
+        <li><a href="admin_userlist.html">사용자 관리</a></li>
+        <li><a href="admin_booking.html" class="active">연습실 관리</a></li>
+        <li><a href="admin_booking_list.html">예약 내역</a></li>
+      </ul>
+    </nav>
 
-  <hr/>
+    <!-- 메인 콘텐츠 -->
+    <main class="content">
+      <button id="logout" class="logout-btn">로그아웃</button>
+      <h2>🛠️ 관리자 – 공지 및 예약 차단 관리</h2>
 
-  <!-- ================= 예약 차단 블록 관리 ================= -->
-  <h2>예약 차단 블록 생성</h2>
-  <form id="block-form">
-    <label for="room-select">연습실:</label>
-    <select id="room-select" required>
-      <option value="">-- 선택 --</option>
-    </select>
+      <!-- 공지 작성/수정/삭제 -->
+      <section>
+        <h3>공지사항 작성 / 수정 / 삭제</h3>
+        <form id="notice-form">
+          <input type="hidden" id="notice-id">
+          <label>
+            제목
+            <input id="notice-title-input" type="text" placeholder="제목을 입력하세요" required>
+          </label>
+          <br><br>
+          <label>
+            내용
+            <textarea id="notice-input" rows="3" placeholder="내용을 입력하세요" required></textarea>
+          </label>
+          <br>
+          <button type="submit" id="notice-submit-btn">공지 올리기</button>
+          <button type="button" id="cancel-edit-btn" class="hidden">취소</button>
+          <button type="button" id="delete-notice-btn" class="hidden">삭제</button>
+        </form>
 
-    <label for="start-date-input">시작 날짜:</label>
-    <input type="date" id="start-date-input" required />
+        <ul id="notice-list"></ul>
+      </section>
 
-    <label for="end-date-input">종료 날짜:</label>
-    <input type="date" id="end-date-input" required />
+      <hr>
 
-    <button type="submit">블록 생성</button>
-  </form>
+      <!-- 예약 차단 블록 관리 -->
+      <section>
+        <h3>예약 차단 블록 생성</h3>
+        <form id="block-form">
+          <label>
+            연습실
+            <select id="room-select" required>
+              <option value="">-- 선택 --</option>
+            </select>
+          </label>
+          <label>
+            시작 날짜
+            <input type="date" id="start-date-input" required>
+          </label>
+          <label>
+            종료 날짜
+            <input type="date" id="end-date-input" required>
+          </label>
+          <button type="submit">블록 생성</button>
+        </form>
 
-  <h2>현재 블록 목록</h2>
-  <table id="block-table">
-    <thead>
-      <tr>
-        <th>ID</th><th>연습실</th><th>기간</th><th>시작</th><th>종료</th><th>액션</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+        <h3>현재 블록 목록</h3>
+        <div class="table-container">
+          <table id="block-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>연습실</th>
+                <th>기간</th>
+                <th>시작</th>
+                <th>종료</th>
+                <th>액션</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
 
-  <script>
-    const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-    if (!token) {
-      alert('관리자 로그인이 필요합니다.');
-      location.href = '/admin.html';
-    }
-    const headers = {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer ' + token
-    };
-
-    // === 공지사항 CRUD ===
-    const noticeForm      = document.getElementById('notice-form');
-    const titleInput      = document.getElementById('notice-title-input');
-    const contentInput    = document.getElementById('notice-input');
-    const submitBtn       = document.getElementById('notice-submit-btn');
-    const cancelEditBtn   = document.getElementById('cancel-edit-btn');
-    const deleteNoticeBtn = document.getElementById('delete-notice-btn');
-    const noticeIdInput   = document.getElementById('notice-id');
-    let isEditing = false;
-
-    async function loadNotices() {
-      const res = await fetch('/api/notices', { headers });
-      if (!res.ok) return alert('공지 로딩 실패');
-      const list = await res.json();
-      const ul = document.getElementById('notice-list');
-      ul.innerHTML = '';
-      list.forEach(n => {
-        const li = document.createElement('li');
-        li.textContent = `[${n.created_at.split('T')[0]}] ${n.title}`;
-        li.addEventListener('click', () => startEditNotice(n));
-        ul.appendChild(li);
-      });
-    }
-
-    function startEditNotice(n) {
-      isEditing = true;
-      noticeIdInput.value = n.notice_id;
-      titleInput.value    = n.title;
-      contentInput.value  = n.content;
-      submitBtn.textContent      = '수정 완료';
-      cancelEditBtn.classList.remove('hidden');
-      deleteNoticeBtn.classList.remove('hidden');
-      titleInput.focus();
-    }
-
-    function resetForm() {
-      isEditing = false;
-      noticeForm.reset();
-      noticeIdInput.value = '';
-      submitBtn.textContent      = '공지 올리기';
-      cancelEditBtn.classList.add('hidden');
-      deleteNoticeBtn.classList.add('hidden');
-    }
-
-    cancelEditBtn.addEventListener('click', resetForm);
-
-    noticeForm.addEventListener('submit', async e => {
-      e.preventDefault();
-      const title   = titleInput.value.trim();
-      const content = contentInput.value.trim();
-      if (!title || !content) return alert('제목과 내용을 모두 입력하세요.');
-
-      let url    = '/api/admin/notices';
-      let method = 'POST';
-      if (isEditing) {
-        url    = `/api/admin/notices/${noticeIdInput.value}`;
-        method = 'PATCH';
-      }
-
-      try {
-        const res = await fetch(url, {
-          method, headers,
-          body: JSON.stringify({ title, content })
-        });
-        if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
-
-        resetForm();
-        await loadNotices();
-        alert(isEditing ? '공지 수정 완료' : '공지 작성 완료');
-      } catch (err) {
-        console.error(err);
-        alert((isEditing ? '수정' : '작성') + ' 실패: ' + err.message);
-      }
-    });
-
-    deleteNoticeBtn.addEventListener('click', async () => {
-      if (!confirm('정말 이 공지를 삭제하시겠습니까?')) return;
-      try {
-        const res = await fetch(
-          `/api/admin/notices/${noticeIdInput.value}`,
-          { method: 'DELETE', headers }
-        );
-        if (res.status !== 204) throw new Error((await res.json()).detail || res.statusText);
-
-        resetForm();
-        await loadNotices();
-        alert('공지 삭제 완료');
-      } catch (err) {
-        console.error(err);
-        alert('삭제 실패: ' + err.message);
-      }
-    });
-
-    // === 예약 차단 블록 관리 ===
-    const roomsMap = {};
-
-    async function loadRooms() {
-      const res = await fetch('/api/rooms/', { headers });
-      if (!res.ok) throw new Error('연습실 로딩 실패');
-      const rooms = await res.json();
-      const select = document.getElementById('room-select');
-      select.innerHTML = '<option value="">-- 선택 --</option>';
-      rooms.forEach(r => {
-        roomsMap[r.room_id] = r.room_name;
-        const opt = document.createElement('option');
-        opt.value = r.room_id;
-        opt.textContent = r.room_name;
-        select.appendChild(opt);
-      });
-    }
-
-    async function loadBlocks() {
-      const res = await fetch('/api/admin/bookings/', { headers });
-      if (!res.ok) throw new Error('블록 목록 로딩 실패');
-      const blocks = await res.json();
-      const tbody = document.querySelector('#block-table tbody');
-      tbody.innerHTML = '';
-      blocks.forEach(b => {
-        const period = b.start_date === b.end_date
-          ? b.start_date
-          : `${b.start_date} ~ ${b.end_date}`;
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${b.booking_id}</td>
-          <td>${roomsMap[b.room_id] || b.room_id}</td>
-          <td>${period}</td>
-          <td>${b.start_time}</td>
-          <td>${b.end_time}</td>
-          <td><button onclick="deleteBlock(${b.booking_id})">삭제</button></td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }
-
-    async function createBlock(e) {
-      e.preventDefault();
-      const room_id    = +document.getElementById('room-select').value;
-      const start_date = document.getElementById('start-date-input').value;
-      const end_date   = document.getElementById('end-date-input').value;
-      if (!room_id || !start_date || !end_date) {
-        return alert('모든 필드를 입력해주세요.');
-      }
-      try {
-        const res = await fetch('/api/admin/bookings/', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            room_id, start_date, end_date,
-            start_time: '00:00:00',
-            end_time:   '23:59:59'
-          })
-        });
-        if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
-
-        await loadBlocks();
-        alert('블록 생성 완료');
-      } catch (err) {
-        console.error(err);
-        alert('블록 생성 실패: ' + err.message);
-      }
-    }
-
-    async function deleteBlock(id) {
-      try {
-        const res = await fetch(`/api/admin/bookings/${id}`, {
-          method: 'DELETE', headers
-        });
-        if (res.status !== 204) throw new Error((await res.json()).detail || res.statusText);
-        await loadBlocks();
-      } catch (err) {
-        console.error(err);
-        alert('삭제 실패: ' + err.message);
-      }
-    }
-
-    // === 초기화 ===
-    document.addEventListener('DOMContentLoaded', () => {
-      loadNotices();
-      loadRooms();
-      loadBlocks();
-      document.getElementById('block-form').addEventListener('submit', createBlock);
-    });
-  </script>
+  <!-- 공통 관리자 스크립트 -->
+  <script src="js/admin.js" defer></script>
+  <!-- 공지/블록 관리 로직 -->
+  <script src="js/admin_booking.js" defer></script>
 </body>
 </html>

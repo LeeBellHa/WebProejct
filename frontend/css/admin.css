@@ -1,0 +1,244 @@
+/* ───────────────────────────────────────────────────────────────── */
+/* 관리자 사이드바 & 레이아웃                                          */
+/* ───────────────────────────────────────────────────────────────── */
+.wrapper {
+  display: flex;
+  height: calc(100vh - 64px); /* 헤더 높이만큼 뺌 */
+  margin-top: 64px;            /* 헤더 높이와 맞추기 */
+  overflow: hidden;
+}
+
+.sidebar {
+  width: 220px;
+  background: #4a62f6;
+  color: #fff;
+  transform: translateX(0);
+  transition: transform 0.3s ease;
+  flex-shrink: 0;
+}
+body.collapsed .sidebar {
+  transform: translateX(-100%);
+}
+
+.sidebar ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.sidebar li {
+  border-bottom: 1px solid rgba(0,0,0,0.2);
+}
+.sidebar li:last-child { border-bottom: none; }
+.sidebar a {
+  display: block;
+  padding: 14px 20px;
+  color: #fff;
+  text-decoration: none;
+  font-size: 1rem;
+}
+.sidebar a:hover,
+.sidebar a.active {
+  background: rgba(255,255,255,0.15);
+}
+
+/* ───────────────────────────────────────────────────────────────── */
+/* 햄버거 버튼                                                       */
+/* ───────────────────────────────────────────────────────────────── */
+.hamburger {
+  background: none;
+  border: none;
+  padding: 12px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 30px;
+  height: 24px;
+  margin-right: 16px;
+}
+.hamburger span {
+  display: block;
+  height: 3px;
+  background: #333;
+  border-radius: 2px;
+}
+
+/* ───────────────────────────────────────────────────────────────── */
+/* 헤더                                                              */
+/* ───────────────────────────────────────────────────────────────── */
+header {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  background: #fff;
+  padding: 0 24px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  z-index: 1000;
+}
+header img {
+  height: 40px;
+  margin-right: 12px;
+}
+header .title {
+  flex: 1;
+  text-align: center;
+}
+header .title h1 {
+  margin: 0;
+  font-size: 1.6rem;
+  color: #003399;
+}
+header .title p {
+  margin: 2px 0 0;
+  font-size: 1rem;
+  color: #6699ff;
+}
+
+/* ───────────────────────────────────────────────────────────────── */
+/* 메인 콘텐츠 영역                                                  */
+/* ───────────────────────────────────────────────────────────────── */
+.content {
+  flex: 1;
+  padding: 24px;
+  overflow-y: auto;
+}
+.logout-btn {
+  float: right;
+  background: #e74c3c;
+  color: #fff;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+.logout-btn:hover {
+  background: #c0392b;
+}
+.content h2 {
+  margin-top: 0;
+  font-size: 1.4rem;
+}
+.content h3 {
+  margin-bottom: 8px;
+  font-size: 1.2rem;
+}
+
+/* ───────────────────────────────────────────────────────────────── */
+/* 테이블 스타일 (common.css 에서 이어쓰기)                         */
+/* ───────────────────────────────────────────────────────────────── */
+.table-container {
+  max-height: 300px;
+  overflow-y: auto;
+  margin-bottom: 1.5em;
+  border: 1px solid #ccc;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+th, td {
+  border: 1px solid #ccc;
+  padding: 8px;
+  text-align: left;
+}
+th {
+  background: #f4f4f4;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.password-cell {
+  display: flex;
+  align-items: center;
+}
+.password-cell button {
+  margin-right: 6px;
+}
+
+
+/* ───────────────────────────────────────────────────────── */
+/* (기존 admin.css 아래에 추가)                            */
+/* ───────────────────────────────────────────────────────── */
+
+/* 공지 및 예약 차단 관리 폼 */
+.content section {
+  margin-bottom: 2em;
+}
+.content form {
+  margin-top: 0.5em;
+  margin-bottom: 1em;
+}
+.content label {
+  display: inline-block;
+  margin-right: 12px;
+  font-size: 0.95rem;
+}
+.content input[type="text"],
+.content input[type="date"],
+.content textarea,
+.content select {
+  padding: 6px 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.95rem;
+}
+.content textarea {
+  resize: vertical;
+}
+.content button {
+  padding: 6px 14px;
+  border: none;
+  border-radius: 4px;
+  background: #4a62f6;
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+.content button:hover {
+  background: #3e52d1;
+}
+.content hr {
+  margin: 2em 0;
+  border: 0;
+  border-top: 1px solid #ddd;
+}
+
+/* 공지사항 리스트 */
+.content ul#notice-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.content ul#notice-list li {
+  padding: 8px;
+  border-bottom: 1px solid #eee;
+  cursor: pointer;
+}
+.content ul#notice-list li:hover {
+  background: #f9f9f9;
+}
+
+
+/* ────────────────────────────────────────────────────────── */
+/* 예약 내역 필터 & 테이블                                 */
+/* ────────────────────────────────────────────────────────── */
+.content #controls {
+  display: flex;
+  gap: 1em;
+  align-items: center;
+  margin: 1em 0;
+}
+.content #searchInput,
+.content #roomSelect {
+  padding: 6px 8px;
+  font-size: 0.95rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+.content .table-container {
+  max-height: none;        /* 높이 자동 */
+  border: 1px solid #ccc;  /* 테두리 */
+}
