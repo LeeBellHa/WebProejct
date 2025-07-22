@@ -26,4 +26,15 @@ class BookingRead(BookingBase):
 
     model_config = ConfigDict(from_attributes=True)
 
+class BookingOut(BaseModel):
+    id: int
+    room_id: int
+    user_id: int
+    date: str
+    start_time: str
+    end_time: str
+
+    class Config:
+        orm_mode = True
+        
 Booking = BookingRead  # alias for admin router

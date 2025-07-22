@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>관리자 – 예약 내역</title>
+  <!-- 공통 스타일 -->
+  <link rel="stylesheet" href="css/common.css">
+  <!-- 관리자 전용 스타일 -->
+  <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+
+  <!-- 헤더 -->
+  <header>
+    <button id="menuToggle" class="hamburger" aria-label="사이드바 토글">
+      <span></span><span></span><span></span>
+    </button>
+    <img src="images/dku-logo.png" alt="DKU Logo">
+    <div class="title">
+      <h1>단국대학교 뉴뮤직학부</h1>
+      <p>Dankook University New Music</p>
+    </div>
+  </header>
+
+  <div class="wrapper">
+    <!-- 사이드바 -->
+    <nav id="sidebarNav" class="sidebar">
+      <ul>
+        <li><a href="admin_userlist.html">사용자 관리</a></li>
+        <li><a href="admin_booking.html">연습실 관리</a></li>
+        <li><a href="admin_booking_list.html" class="active">예약 내역</a></li>
+      </ul>
+    </nav>
+
+    <!-- 메인 콘텐츠 -->
+    <main class="content">
+      <button id="logout" class="logout-btn">로그아웃</button>
+      <h2>📅 전체 예약 내역</h2>
+
+      <!-- 필터 컨트롤 -->
+      <div id="controls">
+        <input type="text" id="searchInput" placeholder="사용자 ID 검색" />
+        <select id="roomSelect">
+          <option value="">전체 호실</option>
+        </select>
+      </div>
+
+      <!-- 테이블 -->
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>사용자 ID</th>
+              <th>예약 날짜</th>
+              <th>예약 시간</th>
+              <th>호실 ID</th>
+            </tr>
+          </thead>
+          <tbody id="bookingBody">
+            <tr><td colspan="4">로딩 중...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <!-- 공통 기능(메뉴 토글, 로그아웃)만 포함 -->
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const menuToggle = document.getElementById('menuToggle');
+      const sidebar = document.getElementById('sidebarNav');
+      if (menuToggle && sidebar) {
+        menuToggle.addEventListener('click', () => {
+          sidebar.classList.toggle('active');
+        });
+      }
+
+      const logoutBtn = document.getElementById('logout');
+      if (logoutBtn) {
+        logoutBtn.addEventListener('click', () => {
+          localStorage.removeItem('access_token');
+          window.location.href = 'login.html';
+        });
+      }
+    });
+  </script>
+
+  <!-- 예약 내역 로직 -->
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      const tbody = document.getElementById('bookingBody');
+      tbody.innerHTML = '<tr><td colspan="4">로딩 중...</td></tr>';
+
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          tbody.innerHTML = '<tr><td colspan="4">로그인이 필요합니다.</td></tr>';
+          return;
+        }
+
+        const res = await fetch('/api/bookings/', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (!res.ok) {
+          tbody.innerHTML = `<tr><td colspan="4">예약 데이터를 불러올 수 없습니다. (HTTP ${res.status})</td></tr>`;
+          return;
+        }
+
+        const data = await res.json();
+        if (!Array.isArray(data) || data.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="4">예약 내역이 없습니다.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = '';
+        data.forEach(b => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${b.user_id}</td>
+            <td>${b.date}</td>
+            <td>${b.start_time} ~ ${b.end_time}</td>
+            <td>${b.room_id}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        console.error('예약 내역 불러오기 실패:', err);
+        tbody.innerHTML = '<tr><td colspan="4">에러가 발생했습니다.</td></tr>';
+      }
+    });
+  </script>
+</body>
+</html>
