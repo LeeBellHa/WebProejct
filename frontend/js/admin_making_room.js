@@ -16,24 +16,29 @@ document.addEventListener('DOMContentLoaded', () => {
     location.href = 'index.html';
   };
 
-  // 상태
+  // 상태값
   let floors = [1];
   let currentFloor = 1;
   const rows = 30, cols = 30;
-  let cells = {};      // { floor: Set("x,y") }
-  let stickers = [];   // [{ room_name, floor, x, y }]
+  let cells = {}; // { floor:Set("x,y") }
+  let stickers = []; // [{ room_id, room_name, floor, x, y }]
   let drawMode = 'view';
   let isMouseDown = false;
 
+  // ✅ copy/paste용 버퍼
+  let copyBuffer = null;
+
+  // 요소
   const grid = document.getElementById('grid');
+  const gridWrapper = document.getElementById('gridWrapper');
+  const floorContainer = document.getElementById('floorButtons');
   const penBtn = document.getElementById('penMode');
   const eraserBtn = document.getElementById('eraserMode');
   const addStickerBtn = document.getElementById('addSticker');
   const saveBtn = document.getElementById('saveButton');
-  const floorContainer = document.getElementById('floorButtons');
-  const gridWrapper = document.getElementById('gridWrapper');
+  const copyBtn = document.getElementById('copyCells');
+  const pasteBtn = document.getElementById('pasteCells');
 
-  // 층 버튼 렌더
   function renderFloors() {
     floorContainer.innerHTML = '';
     floors.forEach(f => {
@@ -54,11 +59,9 @@ document.addEventListener('DOMContentLoaded', () => {
     floorContainer.appendChild(add);
   }
 
-  // 격자 렌더
   function renderGrid() {
     grid.innerHTML = '';
     if (!cells[currentFloor]) cells[currentFloor] = new Set();
-
     for (let y = 0; y < rows; y++) {
       for (let x = 0; x < cols; x++) {
         const cell = document.createElement('div');
@@ -76,7 +79,6 @@ document.addEventListener('DOMContentLoaded', () => {
             cell.classList.remove('filled');
           }
         });
-
         cell.addEventListener('mouseenter', () => {
           if (!isMouseDown) return;
           if (drawMode === 'pen') {
@@ -94,7 +96,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   document.addEventListener('mouseup', () => { isMouseDown = false; });
 
-  // 스티커 렌더
   function renderStickers() {
     document.querySelectorAll('.sticker').forEach(el => el.remove());
     stickers.filter(s => s.floor === currentFloor).forEach(s => {
@@ -125,18 +126,46 @@ document.addEventListener('DOMContentLoaded', () => {
         div.style.top = (e.pageY - gridWrapper.offsetTop - oy) + 'px';
       }
     });
-    document.addEventListener('mouseup', () => {
+    document.addEventListener('mouseup', async () => {
       if (dragging) {
         dragging = false;
         data.x = parseInt(div.style.left);
         data.y = parseInt(div.style.top);
+        if (data.room_id) {
+          try {
+            await fetch(`/api/rooms/${data.room_id}`, {
+              method: 'PATCH',
+              headers,
+              body: JSON.stringify({ pos_x: data.x, pos_y: data.y })
+            });
+          } catch (e) { console.error('방 위치 업데이트 실패', e); }
+        }
       }
     });
-    div.addEventListener('input', () => {
+
+    div.addEventListener('input', async () => {
       data.room_name = div.textContent.trim();
+      if (data.room_id) {
+        try {
+          await fetch(`/api/rooms/${data.room_id}`, {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify({ room_name: data.room_name })
+          });
+        } catch (e) { console.error('방 이름 수정 실패', e); }
+      }
     });
-    div.addEventListener('dblclick', () => {
-      if (confirm('스티커 삭제?')) {
+
+    div.addEventListener('dblclick', async () => {
+      if (confirm('스티커(방)를 삭제하시겠습니까?')) {
+        if (data.room_id) {
+          try {
+            await fetch(`/api/rooms/${data.room_id}`, {
+              method: 'DELETE',
+              headers
+            });
+          } catch (e) { console.error('방 삭제 실패', e); }
+        }
         const idx = stickers.indexOf(data);
         if (idx > -1) {
           stickers.splice(idx, 1);
@@ -148,56 +177,73 @@ document.addEventListener('DOMContentLoaded', () => {
     return div;
   }
 
-  // 모드 토글
   penBtn.onclick = () => {
     if (drawMode === 'pen') {
-      drawMode = 'view';
-      penBtn.classList.remove('active');
+      drawMode = 'view'; penBtn.classList.remove('active');
     } else {
-      drawMode = 'pen';
-      penBtn.classList.add('active');
-      eraserBtn.classList.remove('active');
+      drawMode = 'pen'; penBtn.classList.add('active'); eraserBtn.classList.remove('active');
     }
   };
   eraserBtn.onclick = () => {
     if (drawMode === 'eraser') {
-      drawMode = 'view';
-      eraserBtn.classList.remove('active');
+      drawMode = 'view'; eraserBtn.classList.remove('active');
     } else {
-      drawMode = 'eraser';
-      eraserBtn.classList.add('active');
-      penBtn.classList.remove('active');
+      drawMode = 'eraser'; eraserBtn.classList.add('active'); penBtn.classList.remove('active');
     }
   };
 
   addStickerBtn.onclick = () => {
-    stickers.push({ room_name: '새 연습실', floor: currentFloor, x: 0, y: 0 });
+    stickers.push({ room_id: null, room_name: '새 연습실', floor: currentFloor, x: 0, y: 0 });
     renderStickers();
   };
 
-  // 💾 저장 버튼: rooms + cells 저장
+  // ✅ copy/paste 핸들러
+  copyBtn.onclick = () => {
+    if (!cells[currentFloor] || cells[currentFloor].size === 0) {
+      alert('복사할 셀이 없습니다.');
+      return;
+    }
+    copyBuffer = Array.from(cells[currentFloor]);
+    alert(`✅ ${currentFloor}층의 ${copyBuffer.length}개 셀을 복사했습니다.`);
+  };
+
+  pasteBtn.onclick = () => {
+    if (!copyBuffer || copyBuffer.length === 0) {
+      alert('붙여넣을 셀이 없습니다. 먼저 Copy를 눌러주세요.');
+      return;
+    }
+    if (!cells[currentFloor]) cells[currentFloor] = new Set();
+    copyBuffer.forEach(coord => cells[currentFloor].add(coord));
+    renderGrid();
+    alert(`📌 ${currentFloor}층에 ${copyBuffer.length}개의 셀을 붙여넣었습니다.`);
+  };
+
   saveBtn.onclick = async () => {
     try {
-      // 1) 스티커(rooms) 저장
+      // rooms 저장
       for (const s of stickers) {
-        await fetch('/api/rooms/', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            room_name: s.room_name,
-            floor: s.floor,
-            pos_x: s.x,
-            pos_y: s.y,
-            state: true,
-            equipment: ''
-          })
-        });
+        if (!s.room_id) {
+          const res = await fetch('/api/rooms/', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              room_name: s.room_name,
+              floor: s.floor,
+              pos_x: s.x,
+              pos_y: s.y,
+              state: true,
+              equipment: ''
+            })
+          });
+          if (res.ok) {
+            const saved = await res.json();
+            s.room_id = saved.room_id;
+          }
+        }
       }
-      // 2) cells 저장 (층별 반복)
-      // 기존 데이터 초기화를 원한다면 DELETE 먼저
-      await fetch('/api/cells/', { method: 'DELETE', headers });
 
-      // 모든 층 데이터 모으기
+      // cells 저장
+      await fetch('/api/cells/', { method: 'DELETE', headers });
       let allCells = [];
       Object.entries(cells).forEach(([floor, set]) => {
         set.forEach(str => {
@@ -205,7 +251,6 @@ document.addEventListener('DOMContentLoaded', () => {
           allCells.push({ floor: Number(floor), x, y });
         });
       });
-
       if (allCells.length > 0) {
         await fetch('/api/cells/bulk', {
           method: 'POST',
@@ -221,13 +266,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  // ✅ DB에서 기존 방 목록 불러오기
   async function loadRooms() {
     try {
-      const res = await fetch('/api/rooms/', { headers });
+      const res = await fetch(`/api/rooms/?_t=${Date.now()}`, { headers, cache: 'no-store' });
       if (!res.ok) throw new Error('방 불러오기 실패');
       const data = await res.json();
       stickers = data.map(room => ({
+        room_id: room.room_id,
         room_name: room.room_name,
         floor: room.floor,
         x: room.pos_x,
@@ -239,13 +284,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // ✅ DB에서 기존 cell 목록 불러오기
   async function loadCells() {
     try {
-      const res = await fetch('/api/cells/', { headers });
+      const res = await fetch(`/api/cells/?_t=${Date.now()}`, { headers, cache: 'no-store' });
       if (!res.ok) throw new Error('셀 불러오기 실패');
       const data = await res.json();
-      // 층별로 셋 구성
       cells = {};
       data.forEach(c => {
         if (!cells[c.floor]) cells[c.floor] = new Set();
@@ -264,5 +307,5 @@ document.addEventListener('DOMContentLoaded', () => {
   renderGrid();
   renderStickers();
   loadRooms();
-  loadCells(); // ✅ 격자 데이터도 로드
+  loadCells();
 });

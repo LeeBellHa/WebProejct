@@ -269,20 +269,38 @@ th {
 }
 
 
-.floor-buttons {
+/* 층 버튼 컨테이너 */
+#floorButtons {
   margin-bottom: 10px;
 }
-.floor-buttons button {
-  padding: 6px 10px;
-  border: 1px solid #ccc;
-  background: #fff;
-  margin-left: 4px;
+
+/* 기본 상태 */
+#floorButtons button {
+  padding: 6px 12px;
+  border: 1px solid #bbb;
+  background: #eaeaea;       /* 살짝 회색으로 더 잘 보이게 */
+  color: #333;
   border-radius: 4px;
+  margin-right: 6px;
+  opacity: 1;                /* 투명도 제거 */
+  transition: all 0.2s ease;
+  cursor: pointer;
 }
-.floor-buttons button.active-floor {
+
+/* 마우스 올라갔을 때 */
+#floorButtons button:hover {
+  background: #d5d5d5;
+  color: #000;
+}
+
+/* 선택된 층 */
+#floorButtons button.active-floor {
   background: #28a745;
   color: #fff;
+  opacity: 1;
 }
+
+
 
 #gridWrapper {
   position: relative;

@@ -6,6 +6,8 @@ from app.database import get_db
 from app.models.cell import Cell
 from app.schemas.cell import CellCreate, CellRead, CellBulkCreate
 from app.routers.user import get_current_admin_user   # ✅ 여기로 수정!
+from app.routers.auth import get_current_user  # user 접근 허용
+
 
 router = APIRouter(prefix="/cells", tags=["cells"])
 
@@ -23,12 +25,13 @@ def admin_only(current_user=Depends(get_current_admin_user)):
 def list_cells(
     floor: Optional[int] = Query(None, description="층 필터"),
     db: Session = Depends(get_db),
-    _: object = Depends(admin_only),
+    _: object = Depends(get_current_user),  # ✅ user도 접근 허용
 ):
     query = db.query(Cell)
     if floor is not None:
         query = query.filter(Cell.floor == floor)
     return query.all()
+
 
 # ────────────────────────────────
 # 2) 단일 cell 생성

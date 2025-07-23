@@ -1,3 +1,5 @@
+// 📌 main.js (로그인 페이지 전용)
+
 // 1) 공지사항 불러오기
 async function loadPublicNotices() {
   try {
@@ -42,15 +44,15 @@ async function handleLogin(e) {
     return alert("아직 승인 대기 중인 계정입니다.");
   }
   localStorage.setItem("token", access_token);
-  location.href = role === "admin" ? "admin_userlist.html" : "user.html";
+  // 권한별 페이지 이동
+  location.href = (role === "admin") ? "admin_userlist.html" : "user.html";
 }
 
 // 3) 이벤트 바인딩
 document.addEventListener("DOMContentLoaded", () => {
   loadPublicNotices();
-  document.getElementById("loginForm")
-          .addEventListener("submit", handleLogin);
-  document.getElementById("goRegister")
-          .addEventListener("click", () => location.href = "register.html");
+  document.getElementById("loginForm").addEventListener("submit", handleLogin);
+  document.getElementById("goRegister").addEventListener("click", () => {
+    location.href = "register.html";
+  });
 });
-
