@@ -4,7 +4,7 @@
 .wrapper {
   display: flex;
   height: calc(100vh - 64px); /* 헤더 높이만큼 뺌 */
-  margin-top: 64px;            /* 헤더 높이와 맞추기 */
+  margin-top: 64px;           /* 헤더 높이와 맞추기 */
   overflow: hidden;
 }
 
@@ -28,7 +28,9 @@ body.collapsed .sidebar {
 .sidebar li {
   border-bottom: 1px solid rgba(0,0,0,0.2);
 }
-.sidebar li:last-child { border-bottom: none; }
+.sidebar li:last-child {
+  border-bottom: none;
+}
 .sidebar a {
   display: block;
   padding: 14px 20px;
@@ -127,7 +129,7 @@ header .title p {
 }
 
 /* ───────────────────────────────────────────────────────────────── */
-/* 테이블 스타일 (common.css 에서 이어쓰기)                         */
+/* 테이블 스타일                                                     */
 /* ───────────────────────────────────────────────────────────────── */
 .table-container {
   max-height: 300px;
@@ -158,12 +160,9 @@ th {
   margin-right: 6px;
 }
 
-
-/* ───────────────────────────────────────────────────────── */
-/* (기존 admin.css 아래에 추가)                            */
-/* ───────────────────────────────────────────────────────── */
-
-/* 공지 및 예약 차단 관리 폼 */
+/* ───────────────────────────────────────────────────────────────── */
+/* 공지 및 예약 차단 관리 폼                                         */
+/* ───────────────────────────────────────────────────────────────── */
 .content section {
   margin-bottom: 2em;
 }
@@ -221,9 +220,8 @@ th {
   background: #f9f9f9;
 }
 
-
 /* ────────────────────────────────────────────────────────── */
-/* 예약 내역 필터 & 테이블                                 */
+/* 예약 내역 필터 & 테이블                                     */
 /* ────────────────────────────────────────────────────────── */
 .content #controls {
   display: flex;
@@ -239,6 +237,89 @@ th {
   border-radius: 4px;
 }
 .content .table-container {
-  max-height: none;        /* 높이 자동 */
-  border: 1px solid #ccc;  /* 테두리 */
+  max-height: none;
+  border: 1px solid #ccc;
+}
+
+/* ────────────────────────────────────────────────────────── */
+/* admin_making_room 스타일                                   */
+/* ────────────────────────────────────────────────────────── */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  background: #f1f1f1;
+  border-bottom: 1px solid #ccc;
+  margin-bottom: 10px;
+}
+.toolbar button {
+  padding: 6px 12px;
+  border: 1px solid #ccc;
+  background: #fff;
+  color: #333;          /* 👈 글씨 색을 기본으로 지정 */
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.toolbar button.active {
+  background: #007bff;
+  color: #fff;
+  border-color: #007bff;
+}
+
+
+.floor-buttons {
+  margin-bottom: 10px;
+}
+.floor-buttons button {
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+  background: #fff;
+  margin-left: 4px;
+  border-radius: 4px;
+}
+.floor-buttons button.active-floor {
+  background: #28a745;
+  color: #fff;
+}
+
+#gridWrapper {
+  position: relative;
+  margin: 20px;
+  display: inline-block;
+  border: 1px solid #ccc;
+  background: #fff;
+  overflow: hidden;
+}
+
+#grid {
+  display: grid;
+  grid-template-columns: repeat(30, 20px);
+  grid-template-rows: repeat(30, 20px);
+}
+
+.cell {
+  width: 20px;
+  height: 20px;
+  border: 1px solid #ddd;
+  box-sizing: border-box;
+}
+.cell.filled {
+  background: rgba(0,123,255,0.8);
+}
+
+.sticker {
+  position: absolute;
+  background: rgba(255, 255, 0, 0.85);
+  padding: 2px 6px;
+  border: 1px solid #aaa;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: move;
+  white-space: nowrap;
+  z-index: 10;
+}
+.sticker:focus {
+  outline: 2px solid #007bff;
 }

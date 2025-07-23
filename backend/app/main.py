@@ -14,6 +14,8 @@ from app.routers.room import router as room_router
 from app.routers.booking import router as booking_router
 from app.routers.admin_booking import router as admin_booking_router
 from app.routers.notice import router as notice_router
+from app.routers.cell import router as cell_router
+
 
 # 1) 테이블 자동생성 (개발/테스트 용)
 Base.metadata.create_all(bind=engine)
@@ -40,6 +42,8 @@ app.include_router(room_router,    prefix="/api", tags=["rooms"])            # /
 app.include_router(booking_router, prefix="/api", tags=["bookings"])         # /api/bookings
 app.include_router(admin_booking_router, prefix="/api", tags=["admin_bookings"])  # /api/admin/bookings
 app.include_router(notice_router)
+app.include_router(cell_router, prefix="/api", tags=["cells"])
+
 
 
 # 5) 프론트엔드 정적 파일 서빙

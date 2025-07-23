@@ -6,7 +6,7 @@
                 "enableSsl": "Disabled"
             },
             "previewLimit": 50,
-            "server": "nm.cneaky04qz63.ap-northeast-2.rds.amazonaws.com",
+            "server": "127.0.0.1",
             "port": 3306,
             "driver": "MySQL",
             "name": "nm-rds",
