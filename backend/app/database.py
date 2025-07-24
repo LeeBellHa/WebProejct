@@ -5,12 +5,13 @@ from dotenv import load_dotenv, find_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-# ─── 1) .env 파일 로드 ─────────────────────────────────────
-# 프로젝트 루트 어디서 실행하든 .env를 찾아 로드
+# ─── 1) .env 파일 로드 (없어도 그냥 넘어가기) ─────────────────
 dotenv_path = find_dotenv()
-if not dotenv_path:
-    raise FileNotFoundError(".env 파일을 찾을 수 없습니다! 프로젝트 루트에 .env가 있나요?")
-load_dotenv(dotenv_path, override=True)
+if dotenv_path:
+    load_dotenv(dotenv_path, override=True)
+    print(f"✅ .env 로드됨: {dotenv_path}")
+else:
+    print("⚠️ .env 파일이 없어도 Cloudtype 환경변수를 사용합니다.")
 
 # ─── 2) 환경변수 확인용 디버깅 출력 ────────────────────────────
 print(">>> DB_HOST:", os.getenv("DB_HOST"))
@@ -24,7 +25,6 @@ DATABASE_URL = (
     f"mysql+pymysql://{os.getenv('DB_USER')}:{os.getenv('DB_PASS')}"
     f"@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}"
 )
-
 print(">>> DATABASE_URL:", DATABASE_URL)
 
 # ─── 4) 엔진·세션·베이스 선언 ─────────────────────────────────
