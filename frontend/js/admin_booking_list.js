@@ -1,4 +1,3 @@
-// admin_booking_list.js
 document.addEventListener('DOMContentLoaded', () => {
   const token = localStorage.getItem('token');
   if (!token) {
@@ -6,7 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return location.href = 'index.html';
   }
 
-  // 토큰 페이로드 확인 (admin/user 접근)
+  // 토큰 파싱
   let payload;
   try {
     payload = JSON.parse(atob(token.split('.')[1]));
@@ -15,8 +14,10 @@ document.addEventListener('DOMContentLoaded', () => {
     alert('유효하지 않은 토큰입니다.');
     return location.href = 'index.html';
   }
-  if (!['admin','user'].includes(payload.role)) {
-    alert('권한 오류');
+
+  // 권한 체크
+  if (payload.role !== 'admin') {
+    alert('관리자 전용 페이지입니다.');
     return location.href = 'index.html';
   }
 
@@ -27,33 +28,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let allBookings = [];
 
-  // 1) 예약 불러오기
+  // ✅ 1) 예약 전체 불러오기 (관리자 전용)
   async function loadBookings() {
-    const url = (payload.role === 'admin')
-      ? '/api/bookings/'
-      : '/api/bookings/me';
-    const res = await fetch(url, { headers });
-    if (!res.ok) {
-      console.error('예약 조회 실패', res.status);
+    try {
+      // 백엔드에서 전체 예약을 반환하도록 구현해둔 엔드포인트 사용
+      const res = await fetch('/api/bookings/', { headers }); // 관리자 권한이면 전체 반환하도록 구현
+      if (!res.ok) {
+        console.error('예약 조회 실패', res.status);
+        document.getElementById('bookingBody').innerHTML =
+          '<tr><td colspan="4">예약을 불러오는 중 오류가 발생했습니다.</td></tr>';
+        return;
+      }
+      allBookings = await res.json();
+
+      // 날짜+시간 정렬
+      allBookings.sort((a, b) => {
+        const da = new Date(`${a.start_date}T${a.start_time}`);
+        const db = new Date(`${b.start_date}T${b.start_time}`);
+        return da - db;
+      });
+
+      populateRoomSelect();
+      applyFilters();
+    } catch (err) {
+      console.error('예약 불러오기 실패', err);
       document.getElementById('bookingBody').innerHTML =
-        '<tr><td colspan="4">예약을 불러오는 중 오류가 발생했습니다.</td></tr>';
-      return;
+        '<tr><td colspan="4">데이터를 불러올 수 없습니다.</td></tr>';
     }
-    allBookings = await res.json();
-    // 날짜+시간으로 정렬
-    allBookings.sort((a, b) => {
-      const da = new Date(`${a.start_date}T${a.start_time}`);
-      const db = new Date(`${b.start_date}T${b.start_time}`);
-      return da - db;
-    });
-    populateRoomSelect();
-    applyFilters();
   }
 
-  // 2) 호실 셀렉트 박스 채우기
+  // ✅ 2) 호실 셀렉트 박스 채우기
   function populateRoomSelect() {
     const select = document.getElementById('roomSelect');
-    // 고유 호실명 추출
+    select.innerHTML = '<option value="">전체 호실</option>';
     const rooms = Array.from(new Set(
       allBookings.map(b => b.room?.room_name || `호실 ${b.room_id}`)
     )).sort((a, b) => a.localeCompare(b, 'ko'));
@@ -65,7 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // 3) 필터 & 렌더링
+  // ✅ 3) 필터링
   function applyFilters() {
     const term = document.getElementById('searchInput').value.trim().toLowerCase();
     const roomFilter = document.getElementById('roomSelect').value;
@@ -79,6 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderTable(filtered);
   }
 
+  // ✅ 4) 테이블 렌더링
   function renderTable(list) {
     const tbody = document.getElementById('bookingBody');
     tbody.innerHTML = '';
@@ -87,26 +95,24 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     list.forEach(b => {
-      const name = b.user?.username || '—';
+      const uname = b.user?.username || '—';
       const roomName = b.room?.room_name || `호실 ${b.room_id}`;
-      const start = b.start_time.slice(0,5);
-      const end   = b.end_time.slice(0,5);
+      const start = b.start_time.slice(0, 5);
+      const end = b.end_time.slice(0, 5);
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td>${name}</td>
+        <td>${uname}</td>
         <td>${b.start_date}</td>
-        <td>${start} – ${end}</td>
+        <td>${start} ~ ${end}</td>
         <td>${roomName}</td>
       `;
       tbody.append(tr);
     });
   }
 
-  // 이벤트 바인딩
-  document.getElementById('searchInput')
-    .addEventListener('input', applyFilters);
-  document.getElementById('roomSelect')
-    .addEventListener('change', applyFilters);
+  // 이벤트
+  document.getElementById('searchInput').addEventListener('input', applyFilters);
+  document.getElementById('roomSelect').addEventListener('change', applyFilters);
 
   // 초기 로드
   loadBookings();

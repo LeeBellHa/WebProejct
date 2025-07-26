@@ -1,8 +1,11 @@
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from datetime import datetime
 from zoneinfo import ZoneInfo
+from pathlib import Path
 
 from app.database import get_db
 from app.models.booking import Booking
@@ -11,8 +14,97 @@ from app.schemas.user import UserRead
 from app.schemas.room import RoomRead
 from app.routers.auth import get_current_user
 
+# ===========================
+# 📌 Jinja2 템플릿 경로: frontend 폴더
+# ===========================
+BASE_DIR = Path(__file__).resolve().parent.parent.parent  # backend/
+TEMPLATE_DIR = BASE_DIR / "frontend"                      # webproject/frontend/
+templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
+
+# ===========================
+# 📌 Router 설정
+# ===========================
 router = APIRouter(prefix="/bookings", tags=["bookings"])
 
+# =========================================================
+# ✅ HTML 페이지로 현재 로그인한 사용자의 예약 리스트 보기
+# =========================================================
+@router.get("/my-booking-list", response_class=HTMLResponse, summary="현재 사용자 예약 내역 HTML 페이지")
+async def my_booking_list(
+    request: Request,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    my_bookings = db.query(Booking).filter(
+        Booking.user_id == current_user.user_id
+    ).order_by(Booking.start_date, Booking.start_time).all()
+
+    return templates.TemplateResponse(
+        "user_booking_list.html",
+        {"request": request, "bookings": my_bookings}
+    )
+
+# =========================================================
+# ✅ JSON API: 현재 로그인한 사용자의 예약 리스트 조회
+# =========================================================
+@router.get(
+    "/me",
+    response_model=List[BookingRead],
+    summary="현재 로그인한 사용자의 예약 리스트 조회"
+)
+def get_my_bookings(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    bookings = db.query(Booking).filter(
+        Booking.user_id == current_user.user_id
+    ).order_by(Booking.start_date, Booking.start_time).all()
+
+    return [
+        BookingRead(
+            booking_id=b.booking_id,
+            start_date=b.start_date,
+            end_date=b.end_date,
+            start_time=b.start_time,
+            end_time=b.end_time,
+            user=UserRead.from_orm(b.user),
+            room=RoomRead.from_orm(b.room),
+            created_at=b.created_at
+        ) for b in bookings
+    ]
+
+# =========================================================
+# ✅ JSON API: 전체 예약 리스트 (관리자 전용)
+# =========================================================
+@router.get(
+    "/",
+    response_model=List[BookingRead],
+    summary="전체 예약 리스트 (관리자 전용)"
+)
+def get_all_bookings(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    # 관리자 권한 체크
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="관리자만 접근 가능합니다.")
+    bookings = db.query(Booking).order_by(Booking.start_date, Booking.start_time).all()
+    return [
+        BookingRead(
+            booking_id=b.booking_id,
+            start_date=b.start_date,
+            end_date=b.end_date,
+            start_time=b.start_time,
+            end_time=b.end_time,
+            user=UserRead.from_orm(b.user),
+            room=RoomRead.from_orm(b.room),
+            created_at=b.created_at
+        ) for b in bookings
+    ]
+
+# =========================================================
+# ✅ 예약 생성
+# =========================================================
 @router.post(
     "/",
     response_model=BookingRead,
@@ -24,21 +116,17 @@ def create_booking(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    # 0) 서울 시간 기준 now (tz-aware)
     seoul_tz = ZoneInfo("Asia/Seoul")
     now = datetime.now(seoul_tz)
 
-    # 1) 시작/종료 tz-aware datetime 결합
     dt_start = datetime.combine(booking_in.start_date, booking_in.start_time, tzinfo=seoul_tz)
-    dt_end   = datetime.combine(booking_in.end_date,   booking_in.end_time,   tzinfo=seoul_tz)
+    dt_end   = datetime.combine(booking_in.end_date, booking_in.end_time, tzinfo=seoul_tz)
 
-    # 2) 기본 유효성 검사
     if dt_end <= dt_start:
         raise HTTPException(status_code=400, detail="종료 시간이 시작 시간보다 빨라요.")
     if (dt_end - dt_start).total_seconds() > 120*60:
         raise HTTPException(status_code=400, detail="최대 2시간까지만 예약할 수 있습니다.")
 
-    # 3) 동일 사용자, 동일 날짜 이전 예약 종료 시각 검사
     last = db.query(Booking).filter(
         Booking.user_id == current_user.user_id,
         Booking.start_date == booking_in.start_date
@@ -46,14 +134,12 @@ def create_booking(
 
     if last:
         last_end = datetime.combine(last.end_date, last.end_time, tzinfo=seoul_tz)
-        # 현재 시간이 아직 이전 예약 종료 전이라면 새 예약 불가
         if now < last_end:
             raise HTTPException(
                 status_code=400,
                 detail="같은 날짜에 이미 예약이 있어 이전 예약의 종료 시각 이후에만 재예약할 수 있습니다."
             )
 
-    # 4) 다른 사람 예약 겹침 체크 (같은 방에서)
     conflict = db.query(Booking).filter(
         Booking.room_id == booking_in.room_id,
         Booking.start_date == booking_in.start_date,
@@ -63,7 +149,6 @@ def create_booking(
     if conflict:
         raise HTTPException(status_code=400, detail="해당 시간에 이미 다른 사용자의 예약이 있습니다.")
 
-    # 5) 동일 사용자 다른 방 예약 겹침 체크 (추가)
     user_conflict = db.query(Booking).filter(
         Booking.user_id == current_user.user_id,
         Booking.start_date == booking_in.start_date,
@@ -74,7 +159,6 @@ def create_booking(
     if user_conflict:
         raise HTTPException(status_code=400, detail="동일한 시간대에 다른 연습실을 예약할 수 없습니다.")
 
-    # 6) 예약 생성
     booking = Booking(
         user_id=current_user.user_id,
         room_id=booking_in.room_id,

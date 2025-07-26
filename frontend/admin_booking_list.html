@@ -4,9 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>관리자 – 예약 내역</title>
-  <!-- 공통 스타일 -->
   <link rel="stylesheet" href="css/common.css">
-  <!-- 관리자 전용 스타일 -->
   <link rel="stylesheet" href="css/admin.css">
 </head>
 <body>
@@ -29,18 +27,17 @@
       <ul>
         <li><a href="admin_userlist.html">사용자 관리</a></li>
         <li><a href="admin_booking.html">연습실 관리</a></li>
-        <li><a href="admin_booking_list.html">예약 내역</a></li>
-        <li><a href="admin_making_room.html">연습실 수정</a></li> <!-- ✅ 추가 -->
+        <li><a href="admin_booking_list.html" class="active">예약 내역</a></li>
+        <li><a href="admin_making_room.html">연습실 수정</a></li>
       </ul>
     </nav>
-
 
     <!-- 메인 콘텐츠 -->
     <main class="content">
       <button id="logout" class="logout-btn">로그아웃</button>
       <h2>📅 전체 예약 내역</h2>
 
-      <!-- 필터 컨트롤 -->
+      <!-- 필터 -->
       <div id="controls">
         <input type="text" id="searchInput" placeholder="사용자명 검색" />
         <select id="roomSelect">
@@ -48,7 +45,6 @@
         </select>
       </div>
 
-      <!-- 테이블 -->
       <div class="table-container">
         <table>
           <thead>
@@ -67,9 +63,7 @@
     </main>
   </div>
 
-  <!-- 공통 관리자 스크립트 (사이드바 토글, 인증) -->
   <script src="js/admin.js" defer></script>
-  <!-- 예약 내역 렌더링 로직 -->
-  <script src="js/admin_booking_list.js" defer></script>
+  <script src="js/admin_booking_list.js?v=20250727" defer></script>
 </body>
 </html>

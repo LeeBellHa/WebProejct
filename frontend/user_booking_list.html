@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>내 예약 내역</title>
+  <!-- 공통 스타일 -->
+  <link rel="stylesheet" href="css/common.css?v=20250723">
+  <link rel="stylesheet" href="css/admin.css?v=20250723">
+  <link rel="stylesheet" href="css/user.css?v=20250723">
+  <style>
+    /* 예약 내역 전용 테이블 스타일 */
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; background: #fff; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; font-size: 0.95rem; }
+    th { background-color: #f0f0f0; }
+    h2 { margin-top: 0; }
+  </style>
+</head>
+<body>
+
+  <!-- 헤더 -->
+  <header>
+    <button id="menuToggle" class="hamburger" aria-label="사이드바 토글">
+      <span></span><span></span><span></span>
+    </button>
+    <img src="images/dku-logo.png" alt="DKU Logo">
+    <div class="title">
+      <h1>단국대학교 뉴뮤직학부</h1>
+      <p>Dankook University New Music</p>
+    </div>
+  </header>
+
+  <div class="wrapper">
+    <!-- 사이드바 -->
+    <nav id="sidebarNav" class="sidebar">
+      <ul>
+        <li><a href="user.html">연습실 예약</a></li>
+        <li><a href="user_booking_list.html" class="active">내 예약 내역</a></li>
+      </ul>
+    </nav>
+
+    <!-- 메인 콘텐츠 -->
+    <main class="content">
+      <button id="logout" class="logout-btn">로그아웃</button>
+      <h2>📋 나의 예약 내역</h2>
+      <p id="greeting">예약 내역을 확인하세요.</p>
+
+      <section class="section">
+        <table id="bookingTable">
+          <thead>
+            <tr>
+              <th>예약 일자</th>
+              <th>시작 시간</th>
+              <th>종료 시간</th>
+              <th>예약한 시간(시간 단위)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="4">불러오는 중...</td></tr>
+          </tbody>
+        </table>
+      </section>
+    </main>
+  </div>
+
+  <script src="js/user_booking_list.js?v=20250727" defer></script>
+</body>
+</html>
