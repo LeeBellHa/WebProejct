@@ -182,3 +182,37 @@ def create_booking(
         room=RoomRead.from_orm(booking.room),
         created_at=booking.created_at
     )
+
+
+@router.delete(
+    "/{booking_id}",
+    status_code=204,
+    summary="예약 취소"
+)
+def delete_booking(
+    booking_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    booking = db.query(Booking).filter(Booking.booking_id == booking_id).first()
+    if not booking:
+        raise HTTPException(status_code=404, detail="예약을 찾을 수 없습니다.")
+    if booking.user_id != current_user.user_id and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="자신의 예약만 취소할 수 있습니다.")
+
+    seoul_tz = ZoneInfo("Asia/Seoul")
+    now = datetime.now(seoul_tz)
+    start_dt = datetime.combine(booking.start_date, booking.start_time, tzinfo=seoul_tz)
+
+    if current_user.role != "admin":  # 관리자는 무조건 취소 가능
+        if now >= start_dt:
+            raise HTTPException(status_code=400, detail="이미 시작된 예약은 취소할 수 없습니다.")
+        if (start_dt - now).total_seconds() < 600:
+            raise HTTPException(status_code=400, detail="시작 10분 전에는 취소할 수 없습니다.")
+
+    db.delete(booking)
+    db.commit()
+    return
+
+
+

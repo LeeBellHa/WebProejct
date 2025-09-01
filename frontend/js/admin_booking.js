@@ -1,6 +1,6 @@
 // 공지/예약 차단 관리 로직
 document.addEventListener('DOMContentLoaded', () => {
-  // --- Auth & headers are already set in admin.js ---
+  // --- Auth & headers ---
   const token = localStorage.getItem('token');
   const headers = { 
     'Content-Type': 'application/json',
@@ -125,22 +125,35 @@ document.addEventListener('DOMContentLoaded', () => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>${b.booking_id}</td>
-        <td>${roomsMap[b.room_id] || b.room_id}</td>
+        <td>${b.room?.room_name || roomsMap[b.room_id] || b.room_id}</td>
         <td>${period}</td>
         <td>${b.start_time}</td>
         <td>${b.end_time}</td>
         <td><button class="btn-del">삭제</button></td>
       `;
+
+      // ✅ confirm 없이 바로 삭제 & 행 제거
       tr.querySelector('.btn-del').onclick = async () => {
-        if (!confirm('정말 삭제하시겠습니까?')) return;
-        await fetch(`/api/admin/bookings/${b.booking_id}`, {
-          method: 'DELETE', headers
-        });
-        loadBlocks();
+        try {
+          const res = await fetch(`/api/admin/bookings/${b.booking_id}`, {
+            method: 'DELETE', headers
+          });
+          if (res.status === 204) {
+            tr.remove(); // 성공 시 행만 제거
+          } else {
+            const err = await res.json().catch(() => ({}));
+            alert(err.detail || '삭제 실패');
+          }
+        } catch (err) {
+          console.error(err);
+          alert('삭제 요청 실패');
+        }
       };
+
       blockTableBody.appendChild(tr);
     });
   }
+
   blockForm.addEventListener('submit', async e => {
     e.preventDefault();
     const room_id    = +roomSelect.value;
@@ -167,6 +180,5 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // === 초기 로드 ===
   loadNotices();
-  loadRooms();
-  loadBlocks();
+  loadRooms().then(loadBlocks); // roomsMap 준비 후 블록 불러오기
 });

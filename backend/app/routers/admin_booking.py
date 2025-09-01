@@ -13,13 +13,13 @@ router = APIRouter(
 
 @router.get("/", response_model=list[BookingSchema])
 def list_blocks(skip: int = 0, limit: int = 100, db: Session = Depends(get_db), admin=Depends(get_current_admin)):
-    return (
+    blocks = (
         db.query(Booking)
-          .filter(Booking.user_id == admin.user_id)
-          .offset(skip)
-          .limit(limit)
-          .all()
+        .offset(skip)
+        .limit(limit)
+        .all()
     )
+    return blocks
 
 @router.post("/", response_model=BookingSchema, status_code=status.HTTP_201_CREATED)
 def create_block(block_in: BookingCreate, db: Session = Depends(get_db), admin=Depends(get_current_admin)):
