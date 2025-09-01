@@ -31,14 +31,149 @@ document.addEventListener('DOMContentLoaded', () => {
   // 인사말
   document.getElementById('greeting').textContent = `환영합니다, ${payload.sub || '사용자'}님!`;
 
+
+    // ───────────── flatpickr 초기화 ─────────────
+  function initDatePickerWithPolicy() {
+    function nowInKST() {
+      const fmt = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Seoul',
+        year: 'numeric', month: '2-digit', day: '2-digit'
+      });
+      const parts = Object.fromEntries(fmt.formatToParts(new Date()).map(p => [p.type, p.value]));
+      return { y:+parts.year, m:+parts.month, d:+parts.day };
+    }
+    function addDays(y,m,d,add){
+      const dt = new Date(Date.UTC(y,m-1,d));
+      dt.setUTCDate(dt.getUTCDate()+add);
+      return { y:dt.getUTCFullYear(), m:dt.getUTCMonth()+1, d:dt.getUTCDate() };
+    }
+    function ymd(y,m,d){ return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`; }
+
+    function computeRange() {
+      const n = nowInKST();
+      const today = new Date(Date.UTC(n.y, n.m-1, n.d));
+      const weekday = (today.getUTCDay()+6)%7; // 월=0..일=6
+      const monThis = addDays(n.y,n.m,n.d,-weekday);
+      const sunThis = addDays(monThis.y,monThis.m,monThis.d,6);
+      const monNext = addDays(monThis.y,monThis.m,monThis.d,7);
+      const sunNext = addDays(sunThis.y,sunThis.m,sunThis.d,7);
+      const passedFri9 = (weekday>4)||(weekday===4 && new Date().getHours()>=9);
+      return {
+        min: ymd(monThis.y,monThis.m,monThis.d),
+        max: passedFri9 ? ymd(sunNext.y,sunNext.m,sunNext.d) : ymd(sunThis.y,sunThis.m,sunThis.d)
+      };
+    }
+
+    const { min, max } = computeRange();
+    flatpickr("#bookingDate", {
+      locale: "ko",
+      dateFormat: "Y-m-d",
+      minDate: min,
+      maxDate: max,
+      defaultDate: min,
+      disableMobile: true
+    });
+  }
+
+  // 실행
+  initDatePickerWithPolicy();
+
+
+  // ───────────── 달력 가드 (이번 주 + 금 09:00 이후 다음 주) ─────────────
+  const bookingDate = document.getElementById('bookingDate');
+
+  function nowInKST() {
+    const fmt = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Seoul',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      hour12: false,
+    });
+    const parts = Object.fromEntries(fmt.formatToParts(new Date()).map(p => [p.type, p.value]));
+    return {
+      y: +parts.year, m: +parts.month, d: +parts.day,
+      hh: +parts.hour, mm: +parts.minute, ss: +parts.second,
+    };
+  }
+  function ymd(y, m, d) {
+    return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+  }
+  function addDays(y, m, d, add) {
+    const dt = new Date(Date.UTC(y, m - 1, d));
+    dt.setUTCDate(dt.getUTCDate() + add);
+    return { y: dt.getUTCFullYear(), m: dt.getUTCMonth() + 1, d: dt.getUTCDate() };
+  }
+  function computeBookableRangeKST() {
+    const now = nowInKST();
+    const todayUTC = new Date(Date.UTC(now.y, now.m - 1, now.d));
+    const weekday = (todayUTC.getUTCDay() + 6) % 7; // 월=0...일=6
+
+    const mondayThis = addDays(now.y, now.m, now.d, -weekday);
+    const sundayThis = addDays(mondayThis.y, mondayThis.m, mondayThis.d, 6);
+
+    const mondayNext = addDays(mondayThis.y, mondayThis.m, mondayThis.d, 7);
+    const sundayNext = addDays(sundayThis.y, sundayThis.m, sundayThis.d, 7);
+
+    const passedFriday9 = (weekday > 4) || (weekday === 4 && now.hh >= 9);
+
+    const minStr = ymd(mondayThis.y, mondayThis.m, mondayThis.d);
+    const maxStr = passedFriday9
+      ? ymd(sundayNext.y, sundayNext.m, sundayNext.d)
+      : ymd(sundayThis.y, sundayThis.m, sundayThis.d);
+
+    return { minStr, maxStr };
+  }
+  function clampDate(value, minStr, maxStr) {
+    if (!value) return minStr;
+    if (value < minStr) return minStr;
+    if (value > maxStr) return maxStr;
+    return value;
+  }
+  function applyDatePolicy() {
+    const { minStr, maxStr } = computeBookableRangeKST();
+    bookingDate.min = minStr;
+    bookingDate.max = maxStr;
+    bookingDate.value = clampDate(bookingDate.value, minStr, maxStr);
+    return { minStr, maxStr };
+  }
+
+  // 초기 적용
+  let lastRange = applyDatePolicy();
+
+  // 변경 가드
+  bookingDate.addEventListener('change', () => {
+    const { minStr, maxStr } = lastRange || computeBookableRangeKST();
+    const v = clampDate(bookingDate.value, minStr, maxStr);
+    if (v !== bookingDate.value) {
+      alert(`해당 날짜는 예약할 수 없습니다.\n가능한 기간: ${minStr} ~ ${maxStr}`);
+      bookingDate.value = v;
+      bookingDate.dispatchEvent(new Event('input'));
+    }
+  });
+  // 직접 타이핑 방지
+  bookingDate.addEventListener('keydown', (e) => {
+    const allow = ['Tab', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Backspace', 'Delete'];
+    if (!allow.includes(e.key)) e.preventDefault();
+  });
+  // 금 09:00 이후 자동 확장
+  setInterval(() => {
+    const { minStr, maxStr } = computeBookableRangeKST();
+    if (!lastRange || minStr !== lastRange.minStr || maxStr !== lastRange.maxStr) {
+      lastRange = { minStr, maxStr };
+      bookingDate.min = minStr;
+      bookingDate.max = maxStr;
+      bookingDate.value = clampDate(bookingDate.value, minStr, maxStr);
+    }
+  }, 60 * 1000);
+
   // ───────────── 격자 상태 ─────────────
   const grid = document.getElementById('grid');
   const gridWrapper = document.getElementById('gridWrapper');
   const rows = 30, cols = 30;
   let currentFloor = 1;
   let floors = [1];
-  let filledCells = {}; // { floor: Set("x,y") }
-  let stickers = []; // [{room_id, room_name, floor, x, y}]
+  let filledCells = {};
+  let stickers = [];
   let selectedRoomId = null;
 
   function renderGrid() {
@@ -132,7 +267,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ───────────── 시간표/예약 ─────────────
-  const bookingDate = document.getElementById('bookingDate');
   const loadSlotsBtn = document.getElementById('loadSlots');
   const slotsContainer = document.getElementById('slotsContainer');
   const slotModal = document.getElementById('slotModal');
@@ -150,29 +284,34 @@ document.addEventListener('DOMContentLoaded', () => {
       alert('날짜를 선택해 주세요.');
       return;
     }
+    const { minStr, maxStr } = computeBookableRangeKST();
+    if (date < minStr || date > maxStr) {
+      alert(`해당 날짜는 예약할 수 없습니다.\n가능한 기간: ${minStr} ~ ${maxStr}`);
+      bookingDate.value = clampDate(date, minStr, maxStr);
+      return;
+    }
+
     try {
       const res = await fetch(`/api/rooms/${selectedRoomId}/slots?booking_date=${date}`, { headers });
       if (!res.ok) throw new Error('슬롯 불러오기 실패');
       const slots = await res.json();
       slotsContainer.innerHTML = '';
-      selectedSlots = []; // 초기화
+      selectedSlots = [];
 
       slots.forEach(slot => {
         const btn = document.createElement('button');
-        btn.textContent = `${slot.start.split('T')[1].substring(0,5)}~${slot.end.split('T')[1].substring(0,5)}`;
+        btn.textContent = `${slot.start.split('T')[1].substring(0, 5)}~${slot.end.split('T')[1].substring(0, 5)}`;
         btn.className = 'slot ' + (slot.available ? 'available' : 'unavailable');
         btn.disabled = !slot.available;
         if (slot.available) {
           btn.onclick = () => {
             const idx = selectedSlots.findIndex(s => s.start === slot.start && s.end === slot.end);
             if (idx >= 0) {
-              // 이미 선택된 슬롯 → 해제
               selectedSlots.splice(idx, 1);
               btn.classList.remove('selected');
             } else {
-              // 새로 선택하려는 경우
               if (selectedSlots.length >= 4) {
-                alert('최대 2시간 까지만 선택할 수 있습니다.');
+                alert('최대 2시간까지만 선택할 수 있습니다.');
                 return;
               }
               selectedSlots.push(slot);
@@ -197,16 +336,13 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('#slotsContainer .slot').forEach(b => b.classList.remove('selected'));
   };
 
-  
   confirmBooking.onclick = async () => {
     if (selectedSlots.length === 0) return;
 
-    // 선택된 슬롯들을 시간 순으로 정렬
     const sorted = [...selectedSlots].sort((a, b) => new Date(a.start) - new Date(b.start));
     const firstSlot = sorted[0];
     const lastSlot = sorted[sorted.length - 1];
 
-    // 같은 날짜라는 전제로 동작
     const date = bookingDate.value;
 
     try {
@@ -222,7 +358,7 @@ document.addEventListener('DOMContentLoaded', () => {
         })
       });
       if (!res.ok) {
-        const err = await res.json();
+        const err = await res.json().catch(() => ({}));
         alert(err.detail || '예약 실패');
         return;
       }
@@ -235,7 +371,6 @@ document.addEventListener('DOMContentLoaded', () => {
       alert('예약 실패');
     }
   };
-
 
   // 초기 로딩
   loadCells();
