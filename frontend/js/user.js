@@ -1,38 +1,52 @@
+// ========== 공통 헬퍼만 추가 ==========
+function go(path) {
+  const p = path.startsWith('/') ? path : `/${path}`;
+  location.assign(p);
+}
+function api(path) {
+  const p = path.startsWith('/') ? path : `/${path}`;
+  return new URL(p, location.origin).toString();
+}
+function readJwt(token) {
+  try { return JSON.parse(atob(token.split('.')[1])); } catch { return null; }
+}
+// =====================================
+
 document.addEventListener('DOMContentLoaded', () => {
   // 🔑 인증 체크
   const token = localStorage.getItem('token');
   if (!token) {
     alert('로그인이 필요합니다.');
-    location.href = 'index.html';
+    go('/index.html');
     return;
   }
-  let payload;
-  try {
-    payload = JSON.parse(atob(token.split('.')[1]));
-  } catch {
+  let payload = readJwt(token);
+  if (!payload) {
     localStorage.removeItem('token');
-    location.href = 'index.html';
+    go('/index.html');
     return;
   }
   if (payload.role !== 'user') {
     alert('사용자 전용 페이지입니다.');
-    location.href = 'index.html';
+    go('/index.html');
     return;
   }
 
   const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
 
   // 로그아웃
-  document.getElementById('logout').onclick = () => {
-    localStorage.removeItem('token');
-    location.href = 'index.html';
-  };
+  const logoutEl = document.getElementById('logout');
+  if (logoutEl) {
+    logoutEl.onclick = () => {
+      localStorage.removeItem('token');
+      go('/index.html');
+    };
+  }
 
   // 인사말
   document.getElementById('greeting').textContent = `환영합니다, ${payload.sub || '사용자'}님!`;
 
-
-    // ───────────── flatpickr 초기화 ─────────────
+  // ───────────── flatpickr 초기화 ─────────────
   function initDatePickerWithPolicy() {
     function nowInKST() {
       const fmt = new Intl.DateTimeFormat('en-CA', {
@@ -77,7 +91,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 실행
   initDatePickerWithPolicy();
-
 
   // ───────────── 달력 가드 (이번 주 + 금 09:00 이후 다음 주) ─────────────
   const bookingDate = document.getElementById('bookingDate');
@@ -229,7 +242,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function loadCells() {
     try {
-      const res = await fetch('/api/cells/', { headers });
+      const res = await fetch(api('/api/cells/'), { headers });
       if (!res.ok) throw new Error('셀 불러오기 실패');
       const data = await res.json();
       filledCells = {};
@@ -249,7 +262,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function loadRooms() {
     try {
-      const res = await fetch('/api/rooms/', { headers });
+      const res = await fetch(api('/api/rooms/'), { headers });
       if (!res.ok) throw new Error('방 목록 불러오기 실패');
       const rooms = await res.json();
       stickers = rooms.map(r => ({
@@ -292,7 +305,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     try {
-      const res = await fetch(`/api/rooms/${selectedRoomId}/slots?booking_date=${date}`, { headers });
+      const res = await fetch(api(`/api/rooms/${selectedRoomId}/slots?booking_date=${date}`), { headers });
       if (!res.ok) throw new Error('슬롯 불러오기 실패');
       const slots = await res.json();
       slotsContainer.innerHTML = '';
@@ -346,7 +359,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const date = bookingDate.value;
 
     try {
-      const res = await fetch('/api/bookings/', {
+      const res = await fetch(api('/api/bookings/'), {
         method: 'POST',
         headers,
         body: JSON.stringify({

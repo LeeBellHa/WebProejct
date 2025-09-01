@@ -4,10 +4,15 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>User Dashboard</title>
-  <!-- 공통 스타일 (버전 쿼리스트링 추가) -->
-  <link rel="stylesheet" href="css/common.css?v=20250723">
-  <link rel="stylesheet" href="css/admin.css?v=20250723">
-  <link rel="stylesheet" href="css/user.css?v=20250723">
+
+  <!-- 모든 상대경로를 루트 기준으로 -->
+  <base href="/" />
+
+  <!-- 공통 스타일 (버전 쿼리스트링 유지) -->
+  <link rel="stylesheet" href="/css/common.css?v=20250723">
+  <link rel="stylesheet" href="/css/admin.css?v=20250723">
+  <link rel="stylesheet" href="/css/user.css?v=20250723">
+
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
   <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ko.js"></script>
@@ -92,7 +97,7 @@
     <button id="menuToggle" class="hamburger" aria-label="사이드바 토글">
       <span></span><span></span><span></span>
     </button>
-    <img src="images/dku-logo.png" alt="DKU Logo">
+    <img src="/images/dku-logo.png" alt="DKU Logo">
     <div class="title">
       <h1>단국대학교 뉴뮤직학부</h1>
       <p>Dankook University New Music</p>
@@ -103,9 +108,9 @@
     <!-- 사이드바 -->
     <nav id="sidebarNav" class="sidebar">
       <ul>
-        <li><a href="user.html" class="active">연습실 예약</a></li>
-        <!-- 기존: <a href="user_booking_list.html">내 예약 내역</a> -->
-        <li><a href="user_booking_list.html">내 예약 내역</a></li>
+        <li><a href="/user.html" class="active">연습실 예약</a></li>
+        <!-- 기존: 상대경로 → 절대경로로 고정 -->
+        <li><a href="/user_booking_list.html">내 예약 내역</a></li>
       </ul>
     </nav>
 
@@ -144,7 +149,7 @@
     </div>
   </div>
 
-  <!-- user.js에 쿼리스트링으로 캐시 방지 적용 -->
-  <script src="js/user.js?v=20250902" defer></script>
+  <!-- 기존과 동일, 경로만 절대경로 -->
+  <script src="/js/user.js?v=20250902" defer></script>
 </body>
 </html>
