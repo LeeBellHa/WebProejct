@@ -76,15 +76,21 @@ document.addEventListener('DOMContentLoaded', () => {
   function applyFilters() {
     const term = document.getElementById('searchInput').value.trim().toLowerCase();
     const roomFilter = document.getElementById('roomSelect').value;
+
     const filtered = allBookings.filter(b => {
+      // 🚫 관리자(admin)가 만든 예약(차단 블록)은 제외
+      if (b.user?.role === 'admin') return false;
+
       const uname = (b.user?.username || '').toLowerCase();
       const roomName = b.room?.room_name || `호실 ${b.room_id}`;
       const okName = !term || uname.includes(term);
       const okRoom = !roomFilter || roomName === roomFilter;
       return okName && okRoom;
     });
+
     renderTable(filtered);
   }
+
 
   // ✅ 4) 테이블 렌더링
   function renderTable(list) {

@@ -2,6 +2,18 @@
 document.addEventListener('DOMContentLoaded', () => {
   // --- Auth & headers ---
   const token = localStorage.getItem('token');
+  if (!token) {
+    alert('로그인이 필요합니다.');
+    location.href = 'index.html';
+    return;
+  }
+
+  // 토큰 payload (user_id 확보용)
+  let payload = null;
+  try {
+    payload = JSON.parse(atob(token.split('.')[1]));
+  } catch { /* noop */ }
+
   const headers = { 
     'Content-Type': 'application/json',
     'Authorization': `Bearer ${token}`
@@ -37,6 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
       noticeList.appendChild(li);
     });
   }
+
   function startEdit(n) {
     isEditingNotice = true;
     noticeIdInput.value = n.notice_id;
@@ -46,6 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
     cancelBtn.classList.remove('hidden');
     deleteBtn.classList.remove('hidden');
   }
+
   function resetNoticeForm() {
     isEditingNotice = false;
     noticeForm.reset();
@@ -54,6 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
     cancelBtn.classList.add('hidden');
     deleteBtn.classList.add('hidden');
   }
+
   noticeForm.addEventListener('submit', async e => {
     e.preventDefault();
     const title = titleInput.value.trim();
@@ -79,7 +94,9 @@ document.addEventListener('DOMContentLoaded', () => {
       alert((isEditingNotice ? '수정' : '작성') + ' 실패: ' + err.message);
     }
   });
+
   cancelBtn.onclick = resetNoticeForm;
+
   deleteBtn.onclick = async () => {
     if (!confirm('정말 삭제하시겠습니까?')) return;
     try {
@@ -116,12 +133,23 @@ document.addEventListener('DOMContentLoaded', () => {
   async function loadBlocks() {
     const res = await fetch('/api/admin/bookings/', { headers });
     if (!res.ok) return alert('블록 로딩 실패');
-    const list = await res.json();
+    let list = await res.json();
+
+    // 🛡️ 안전장치: 프론트에서도 "내(관리자) 소유"만 표시
+    if (payload?.user_id) {
+      list = list.filter(b =>
+        b.user_id === payload.user_id ||
+        b.user?.user_id === payload.user_id ||  // 스키마에 따라 다를 수 있어 보강
+        b.user?.id === payload.user_id
+      );
+    }
+
     blockTableBody.innerHTML = '';
     list.forEach(b => {
       const period = (b.start_date === b.end_date)
         ? b.start_date
         : `${b.start_date} ~ ${b.end_date}`;
+
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>${b.booking_id}</td>
@@ -135,13 +163,13 @@ document.addEventListener('DOMContentLoaded', () => {
       // ✅ confirm 없이 바로 삭제 & 행 제거
       tr.querySelector('.btn-del').onclick = async () => {
         try {
-          const res = await fetch(`/api/admin/bookings/${b.booking_id}`, {
+          const delRes = await fetch(`/api/admin/bookings/${b.booking_id}`, {
             method: 'DELETE', headers
           });
-          if (res.status === 204) {
+          if (delRes.status === 204) {
             tr.remove(); // 성공 시 행만 제거
           } else {
-            const err = await res.json().catch(() => ({}));
+            const err = await delRes.json().catch(() => ({}));
             alert(err.detail || '삭제 실패');
           }
         } catch (err) {
@@ -163,22 +191,27 @@ document.addEventListener('DOMContentLoaded', () => {
       return alert('모든 필드를 입력해주세요.');
     }
     try {
-      await fetch('/api/admin/bookings/', {
+      const res = await fetch('/api/admin/bookings/', {
         method: 'POST', headers,
         body: JSON.stringify({
           room_id, start_date, end_date,
           start_time:'00:00:00', end_time:'23:59:59'
         })
       });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || '블록 생성 실패');
+      }
       alert('블록 생성 완료');
       loadBlocks();
     } catch (err) {
       console.error(err);
-      alert('블록 생성 실패');
+      alert(err.message || '블록 생성 실패');
     }
   });
 
   // === 초기 로드 ===
   loadNotices();
-  loadRooms().then(loadBlocks); // roomsMap 준비 후 블록 불러오기
+  // roomsMap 채운 뒤 블록 목록 로드 (이름 매핑 정확)
+  loadRooms().then(loadBlocks);
 });

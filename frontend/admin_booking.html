@@ -28,12 +28,11 @@
     <nav id="sidebarNav" class="sidebar">
       <ul>
         <li><a href="admin_userlist.html">사용자 관리</a></li>
-        <li><a href="admin_booking.html">연습실 관리</a></li>
+        <li><a href="admin_booking.html" class="active">연습실 관리</a></li>
         <li><a href="admin_booking_list.html">예약 내역</a></li>
-        <li><a href="admin_making_room.html">연습실 수정</a></li> <!-- ✅ 추가 -->
+        <li><a href="admin_making_room.html">연습실 수정</a></li>
       </ul>
     </nav>
-
 
     <!-- 메인 콘텐츠 -->
     <main class="content">
@@ -106,9 +105,10 @@
     </main>
   </div>
 
-  <!-- 공통 관리자 스크립트 -->
+  <!-- 공통 관리자 스크립트 (로그아웃/메뉴 등) -->
   <script src="js/admin.js" defer></script>
   <!-- 공지/블록 관리 로직 -->
-  <script src="js/admin_booking.js" defer></script>
+  <script src="js/admin_booking.js?v=20250902" defer></script>
+
 </body>
 </html>
