@@ -1,68 +1,122 @@
-// // 회원가입 요청 보내기
-// document.addEventListener('DOMContentLoaded', () => {
-//   const form = document.getElementById('regForm');
-//   const result = document.getElementById('result');
-
-//   form.addEventListener('submit', async e => {
-//     e.preventDefault();
-//     const data = {
-//       login_id:   form.login_id.value,
-//       password:   form.password.value,
-//       username:   form.username.value,
-//       student_id: form.student_id.value,
-//       major:      form.major.value,
-//       phone:      form.phone.value || null
-//     };
-
-//     try {
-//       const res = await fetch('/users/register', {
-//         method:  'POST',
-//         headers: { 'Content-Type': 'application/json' },
-//         body:    JSON.stringify(data),
-//       });
-//       const json = await res.json();
-//       result.textContent = JSON.stringify(json, null, 2);
-//     } catch (err) {
-//       result.textContent = err;
-//     }
-//   });
-// });
-
-
-// 클라이언트 유효성 검사 + 제출
 (function () {
   const form = document.getElementById('regForm');
   const result = document.getElementById('result');
   const consentCheckbox = document.getElementById('consentRequired');
 
-  // 패턴(백엔드에서도 동일 검증 권장)
+  // 정규식 패턴
   const patterns = {
-    login_id: /^[A-Za-z~!@#$%^&*()_+\-={}\[\]|\\:;'",.<>/?`]+$/,
-    password: /^[A-Za-z~!@#$%^&*()_+\-={}\[\]|\\:;'",.<>/?`]+$/,
+    login_id: /^[A-Za-z0-9~!@#$%^&*()_+\-={}\[\]|\\:;'",.<>/?`]+$/,
+    password: /^[A-Za-z0-9~!@#$%^&*()_+\-={}\[\]|\\:;'",.<>/?`]+$/,
     username: /^[A-Za-z\uAC00-\uD7A3\s]+$/,
     student_id: /^\d{8}$/,
-    phone: /^010-\d{4}-\d{4}$/ // 선택값
+    phone: /^010-\d{4}-\d{4}$/
   };
 
+  // 에러 메시지 표시
+  function showError(input, msg) {
+    let hint = input.nextElementSibling;
+    if (!hint || !hint.classList.contains('hint')) {
+      hint = document.createElement('small');
+      hint.className = 'hint error';
+      input.insertAdjacentElement('afterend', hint);
+    }
+    hint.textContent = msg;
+    hint.classList.add('error');
+  }
+
+  // 에러 제거
+  function clearError(input) {
+    let hint = input.nextElementSibling;
+    if (hint && hint.classList.contains('hint')) {
+      hint.textContent = hint.getAttribute('data-default') || '';
+      hint.classList.remove('error');
+    }
+  }
+
+  // blur 시 개별 필드 검증 + 중복 검사
+  async function checkDuplicate(field, value, input) {
+    if (!value) return;
+    try {
+      const res = await fetch(`/users/check-duplicate?field=${field}&value=${encodeURIComponent(value)}`);
+      const data = await res.json();
+      if (data.exists) {
+        showError(input, data.message);
+      } else {
+        clearError(input);
+      }
+    } catch (err) {
+      console.error("중복 검사 실패", err);
+    }
+  }
+
+  form.querySelectorAll('input, select').forEach(input => {
+    const defaultHint = input.nextElementSibling?.textContent;
+    if (defaultHint) input.nextElementSibling.setAttribute('data-default', defaultHint);
+
+    input.addEventListener('blur', e => {
+      const value = e.target.value.trim();
+      switch (input.name) {
+        case 'login_id':
+          if (!patterns.login_id.test(value) || value.length < 2) {
+            showError(input, 'Login ID는 영문/숫자/특수문자만 가능하며, 최소 2자 이상이어야 합니다.');
+          } else {
+            clearError(input);
+            checkDuplicate('login_id', value, input); // 🔥 중복 검사
+          }
+          break;
+        case 'password':
+          if (!patterns.password.test(value) || value.length < 8) {
+            showError(input, 'Password는 영문/숫자/특수문자만 가능, 8자 이상이어야 합니다.');
+          } else {
+            clearError(input);
+          }
+          break;
+        case 'username':
+          if (!patterns.username.test(value)) {
+            showError(input, '이름은 한글 또는 영문만 가능합니다.');
+          } else {
+            clearError(input);
+          }
+          break;
+        case 'student_id':
+          if (!patterns.student_id.test(value)) {
+            showError(input, '학번은 숫자 8자리여야 합니다.');
+          } else {
+            clearError(input);
+            checkDuplicate('student_id', value, input); // 🔥 중복 검사
+          }
+          break;
+        case 'phone':
+          if (value && !patterns.phone.test(value)) {
+            showError(input, '전화번호 형식이 올바르지 않습니다. 예) 010-1234-5678');
+          } else {
+            clearError(input);
+          }
+          break;
+      }
+    });
+  });
+
+  // 전체 메시지 표시
   function showMsg(msg, ok = false) {
     result.textContent = msg;
     result.style.color = ok ? '#0b7a0b' : '#b00020';
   }
 
+  // 최종 유효성 검사 (submit 시 실행)
   function validate() {
     const data = Object.fromEntries(new FormData(form));
-    // 필수값 체크
+
     if (!data.login_id || !data.password || !data.username || !data.student_id || !data.major) {
       showMsg('필수 항목을 모두 입력하세요.');
       return false;
     }
-    // 패턴 체크
-    if (!patterns.login_id.test(data.login_id)) {
-      showMsg('Login ID는 영문/특수문자만 가능합니다. (숫자 불가)');
+    if (!patterns.login_id.test(data.login_id) || data.login_id.length < 2) {
+      showMsg('Login ID는 영문/숫자/특수문자만 가능하며, 최소 2자 이상이어야 합니다.');
       return false;
     }
     if (!patterns.password.test(data.password) || data.password.length < 8) {
-      showMsg('Password는 영문/특수문자만 가능하며 8자 이상이어야 합니다. (숫자 불가)');
+      showMsg('Password는 영문/숫자/특수문자만 가능, 8자 이상이어야 합니다.');
       return false;
     }
     if (!patterns.username.test(data.username)) {
@@ -84,17 +138,20 @@
     return true;
   }
 
+  // submit 이벤트
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     result.textContent = '';
 
     if (!validate()) return;
 
-    const payload = Object.fromEntries(new FormData(form));
-    // 백엔드 API 엔드포인트는 기존 것 사용(예: /api/auth/register)
+    const payload = Object.fromEntries(
+      [...new FormData(form)].map(([k, v]) => [k, v.trim()])
+    );
+    if (!payload.phone) payload.phone = null;
+
     try {
-      // CSRF/토큰 등은 서버 정책에 맞춰 적용
-      const res = await fetch('/api/auth/register', {
+      const res = await fetch('/users/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -103,15 +160,19 @@
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || `회원가입 실패 (HTTP ${res.status})`);
+        if (err.detail) {
+          showMsg(err.detail);
+        } else if (err.message) {
+          showMsg(err.message);
+        } else {
+          showMsg(`회원가입 실패 (HTTP ${res.status})`);
+        }
+        return;
       }
 
-      const data = await res.json().catch(() => ({}));
+      await res.json().catch(() => ({}));
       showMsg('회원가입 신청이 완료되었습니다. 관리자 승인 후 로그인 가능합니다.', true);
-
-      // 필요 시 폼 초기화
       form.reset();
-      // 동의 체크박스도 초기화됨
     } catch (err) {
       showMsg(err.message || '네트워크 오류가 발생했습니다.');
     }

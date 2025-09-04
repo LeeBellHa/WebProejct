@@ -65,29 +65,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function computeRange() {
       const n = nowInKST();
-      const today = new Date(Date.UTC(n.y, n.m-1, n.d));
-      const weekday = (today.getUTCDay()+6)%7; // 월=0..일=6
+      const today = ymd(n.y, n.m, n.d); // 오늘 날짜 (KST)
+
+      const weekday = (new Date(Date.UTC(n.y, n.m-1, n.d)).getUTCDay()+6)%7; // 월=0..일=6
       const monThis = addDays(n.y,n.m,n.d,-weekday);
       const sunThis = addDays(monThis.y,monThis.m,monThis.d,6);
       const monNext = addDays(monThis.y,monThis.m,monThis.d,7);
       const sunNext = addDays(sunThis.y,sunThis.m,sunThis.d,7);
+
       const passedFri9 = (weekday>4)||(weekday===4 && new Date().getHours()>=9);
-      return {
-        min: ymd(monThis.y,monThis.m,monThis.d),
-        max: passedFri9 ? ymd(sunNext.y,sunNext.m,sunNext.d) : ymd(sunThis.y,sunThis.m,sunThis.d)
-      };
+
+      // ✅ 최소 날짜는 오늘과 이번 주 월요일 중 더 나중 것
+      const min = today > ymd(monThis.y,monThis.m,monThis.d)
+        ? today
+        : ymd(monThis.y,monThis.m,monThis.d);
+
+      const max = passedFri9
+        ? ymd(sunNext.y,sunNext.m,sunNext.d)
+        : ymd(sunThis.y,sunThis.m,sunThis.d);
+
+      return { min, max };
     }
 
     const { min, max } = computeRange();
     flatpickr("#bookingDate", {
       locale: "ko",
       dateFormat: "Y-m-d",
-      minDate: min,
+      minDate: min,   // ✅ 오늘 이전은 회색 처리
       maxDate: max,
       defaultDate: min,
       disableMobile: true
     });
   }
+
 
   // 실행
   initDatePickerWithPolicy();

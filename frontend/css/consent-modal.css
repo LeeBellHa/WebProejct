@@ -1,18 +1,91 @@
-/* 간단 모달 스타일 - 기존 common.css와 충돌 없게 최소만 */
-.modal { position: fixed; inset: 0; display: none; }
-.modal.show { display: block; }
-.modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.45); }
-.modal-content {
-  position: relative; z-index: 1; max-width: 720px; margin: 6rem auto;
-  background: #fff; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.2);
-  padding: 0; overflow: hidden;
+/* 모달 기본 */
+.modal {
+  position: fixed;
+  inset: 0;
+  display: none;
+  z-index: 1000;
 }
-.modal-header, .modal-footer { padding: 16px 20px; background: #f7f7f9; }
-.modal-body { padding: 16px 20px; max-height: 60vh; overflow: auto; }
-.modal-close { background: none; border: 0; font-size: 1.5rem; line-height: 1; cursor: pointer; }
-.linklike { background: none; border: 0; padding: 0; color: #246bff; cursor: pointer; text-decoration: underline; font: inherit; }
-.secondary { background: #e9e9ee; }
-.consent-row { margin: 12px 0 20px; display: flex; align-items: center; gap: 8px; }
-.hint { display:block; color:#6b6b6b; font-size:12px; margin-top:4px; }
-.agreement p { margin: 10px 0; }
-.agreement .muted { color:#777; font-size: 12px; }
+.modal.show { display: block; }
+
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+}
+
+/* 모달 박스 */
+.modal-content {
+  position: relative;
+  z-index: 1;
+  max-width: 640px;
+  margin: 5rem auto;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 12px 36px rgba(0,0,0,.25);
+  overflow: hidden;
+  animation: fadeInUp .25s ease-out;
+}
+
+/* 헤더/푸터 */
+.modal-header, .modal-footer {
+  padding: 16px 20px;
+  background: #f9f9fb;
+  border-bottom: 1px solid #eee;
+}
+.modal-footer {
+  border-top: 1px solid #eee;
+  border-bottom: none;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* 본문 */
+.modal-body {
+  padding: 20px;
+  max-height: 60vh;
+  overflow-y: auto;
+  line-height: 1.6;
+  font-size: 15px;
+}
+
+/* 닫기 버튼 */
+.modal-close {
+  background: none;
+  border: 0;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  color: #666;
+}
+.modal-close:hover { color: #000; }
+
+/* 동의서 본문 */
+.agreement p { margin: 12px 0; }
+.agreement strong { display: inline-block; margin-bottom: 4px; }
+.agreement .muted { color:#777; font-size: 12px; margin-top: 12px; }
+
+/* 버튼 */
+.modal-footer button {
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+}
+.modal-footer #agreeBtn {
+  background: #246bff;
+  color: #fff;
+}
+.modal-footer .secondary {
+  background: #eee;
+  color: #333;
+}
+
+/* 애니메이션 */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+

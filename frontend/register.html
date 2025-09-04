@@ -4,8 +4,34 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>회원가입 | 뉴뮤직 예약 시스템</title>
-  <link rel="stylesheet" href="css/common.css">
-  <link rel="stylesheet" href="css/consent-modal.css"><!-- 모달 전용 -->
+  <link rel="stylesheet" href="css/common.css?v=20250905">
+  <link rel="stylesheet" href="css/consent-modal.css?v=20250905"><!-- 모달 전용 -->
+  <style>
+    /* 동의 영역 스타일 보정 */
+    .consent-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 12px 0 20px;
+      flex-wrap: wrap;
+      font-size: 14px;
+    }
+    .consent-row input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+    }
+    .consent-row label {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .consent-row .linklike {
+      margin: 0 4px;
+    }
+    small.hint.error {
+      color: #b00020 !important;
+    }
+  </style>
 </head>
 <body>
   <!-- 헤더 -->
@@ -26,7 +52,6 @@
         <form id="regForm" novalidate>
           <label>
             Login ID
-            <!-- 영문대소문자 + 특수문자만 (숫자 불가) -->
             <input
               name="login_id"
               required
@@ -35,12 +60,11 @@
               pattern="^[A-Za-z~!@#$%^&*()_+\-={}[\]|\\:;&quot;',.<>/?`]+$"
               autocomplete="username"
             />
-            <small class="hint">영문/특수문자만 사용 가능, 최소 2자</small>
+            <small class="hint">영문/숫자/특수문자만 사용 가능, 최소 2자</small>
           </label>
 
           <label>
             Password
-            <!-- 영문대소문자 + 특수문자만 (숫자 불가), 8자 이상 -->
             <input
               type="password"
               name="password"
@@ -49,25 +73,24 @@
               pattern="^[A-Za-z~!@#$%^&*()_+\-={}[\]|\\:;&quot;',.<>/?`]+$"
               autocomplete="new-password"
             />
-            <small class="hint">영문/특수문자만 사용 가능, 8자 이상</small>
+            <small class="hint">영문/숫자/특수문자만 사용 가능, 8자 이상</small>
           </label>
 
           <label>
             Username
-            <!-- 한글/영문/공백만 -->
             <input
               name="username"
               required
               minlength="1"
               maxlength="100"
               pattern="^[A-Za-z\uAC00-\uD7A3\s]+$"
+              placeholder="예) 이종하"
             />
             <small class="hint">한글 또는 영문만</small>
           </label>
 
           <label>
             Student ID
-            <!-- 숫자 8자리 고정 -->
             <input
               name="student_id"
               required
@@ -102,11 +125,23 @@
 
           <!-- 동의 영역 -->
           <div class="consent-row">
-            <input type="checkbox" id="consentRequired" required />
-            <label for="consentRequired">
-              (필수) <button type="button" class="linklike" id="openConsent">개인정보 수집 및 이용 동의</button>에 동의합니다.
+            <!-- 첫 줄: 체크박스 + (필수) -->
+            <label class="consent-check">
+              <input type="checkbox" id="consentRequired" disabled />
+              (필수)
             </label>
+
+            <!-- 둘째 줄: 버튼 + 문구 -->
+            <div class="consent-text">
+              <button type="button" class="linklike" id="openConsent">개인정보 수집 및 이용 동의</button>
+              에 동의합니다.
+            </div>
           </div>
+
+
+
+
+
 
           <button type="submit" id="submitBtn">가입하기</button>
         </form>
@@ -125,23 +160,17 @@
         <button class="modal-close" type="button" aria-label="닫기" data-close>&times;</button>
       </header>
       <div class="modal-body">
-        <!-- 동의서 본문 -->
         <div class="agreement">
           <p><strong>1) 수집·이용 목적</strong><br>
           뉴뮤직 학부 연습실 예약 시스템(NM) 회원관리, 예약 생성/변경/취소 처리, 사용자 본인확인, 공지사항 안내</p>
-
           <p><strong>2) 수집 항목(필수)</strong><br>
           로그인ID, 비밀번호(서버 저장 시 암호화), 성명, 학번, 전공, 전화번호</p>
-
           <p><strong>3) 보유·이용 기간</strong><br>
           회원 탈퇴 시까지 또는 관계 법령에 따른 보존기간 동안 보관 후 지체 없이 파기합니다. 단, 서비스 운영 기록(예약/접속 로그 등)은 분쟁 대비 및 시스템 보안 목적상 별도 보관될 수 있습니다.</p>
-
           <p><strong>4) 제3자 제공/위탁</strong><br>
           원칙적으로 제3자에게 제공하지 않습니다. 서비스 운영 및 유지보수를 위해 필요한 경우에 한하여 관련 법령에 따라 위탁/제공될 수 있으며, 이 경우 사전에 고지합니다.</p>
-
           <p><strong>5) 동의 거부 권리 및 불이익</strong><br>
           귀하는 개인정보 수집·이용에 대한 동의를 거부할 권리가 있으나, 이 경우 서비스 이용(회원가입/예약)이 제한될 수 있습니다.</p>
-
           <p class="muted">버전: v1.0 · 고지일: 2025-09-03 · 관리자: 뉴뮤직 학부</p>
         </div>
       </div>
@@ -153,7 +182,7 @@
   </div>
 
   <!-- 회원가입 로직 -->
-  <script src="js/register.js" defer></script>
-  <script src="js/consent-modal.js" defer></script>
+  <script src="js/register.js?v=20250905" defer></script>
+  <script src="js/consent-modal.js?v=20250905" defer></script>
 </body>
 </html>

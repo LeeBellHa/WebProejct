@@ -200,3 +200,24 @@ header .title p {
   overflow: auto;
   font-size: 0.85rem;
 }
+
+
+.consent-row {
+  margin: 16px 0 20px;
+  display: flex;
+  flex-direction: column; /* ✅ 세로 배치 */
+  gap: 6px;
+}
+
+.consent-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: #333;
+}
+
+.consent-text {
+  font-size: 14px;
+  color: #333;
+}
